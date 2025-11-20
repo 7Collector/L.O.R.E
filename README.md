@@ -1,6 +1,6 @@
 # LORE
 
-A modular, Norse‑themed AI + file home server designed to run fully on your local machine. LORE combines storage, search, media intelligence, and local LLM capabilities into one coherent ecosystem.
+A modular, AI + file home server designed to run fully on your local machine. LORE combines storage, search, media intelligence, and local LLM capabilities into one coherent ecosystem.
 
 ---
 
