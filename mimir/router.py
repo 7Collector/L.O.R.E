@@ -1,96 +1,224 @@
 import os
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+import time
+import sqlite3
+from pathlib import Path
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from constants import BASE_DIR
+from constants import BASE_DIR, DB_PATH
 
 router = APIRouter()
+BASE_DIR = Path(BASE_DIR / "mimir")
 
-@router.get("download/{name}")
-def fetch_file(name: str):
-    path = os.path.join(BASE_DIR, name)
+def db():
+    return sqlite3.connect(DB_PATH)
 
-    if not os.path.exists(path):
+
+# Download a file
+@router.get("/download/{path:path}")
+def fetch_file(path: str):
+    full_path = BASE_DIR / path
+
+    if not full_path.exists() or full_path.is_dir():
         raise HTTPException(404, "File not found")
 
-    if os.path.isdir(path):
-        raise HTTPException(400, "Cannot fetch a folder")
+    return FileResponse(full_path, filename=full_path.name)
 
-    return FileResponse(path, filename=name)
 
+# Upload a file to the respective path
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    save_path = os.path.join(BASE_DIR, file.filename)
+async def upload_file(
+    path: str = Query("/", description="Folder to upload to"),
+    file: UploadFile = File(...)
+):
+    folder = BASE_DIR / path.lstrip("/")
+    folder.mkdir(parents=True, exist_ok=True)
 
-    if os.path.exists(save_path):
-         raise HTTPException(400, "File already exists")
+    save_path = folder / file.filename
 
-    with open(save_path, "wb") as out_file:
-        content = await file.read()
-        out_file.write(content)
+    if save_path.exists():
+        raise HTTPException(400, "File already exists")
 
-    return {"status": "ok", "saved_as": file.filename}
+    content = await file.read()
+    save_path.write_bytes(content)
 
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR IGNORE INTO files (path, name, parent, is_file, size, modified, created)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(save_path),
+            file.filename,
+            str(folder),
+            1,
+            len(content),
+            time.time(),
+            time.time(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok", "saved_as": save_path.name}
+
+
+# List files and Sub Dirs
 @router.get("/list")
 def get_list(
     path: str = Query("/", description="Folder to list"),
     page: int = 1,
-    limit: int = 20
+    limit: int = 20,
 ):
-    folder = BASE_DIR + path
+    folder = BASE_DIR / path.lstrip("/")
 
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(404, "Folder not found")
 
-    entries = list(folder.iterdir())
-    entries.sort(key=lambda x: x.name.lower())
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT name, is_file, size, modified FROM files WHERE parent = ? ORDER BY name ASC",
+        (str(folder),),
+    )
+    rows = cur.fetchall()
+    conn.close()
 
     start = (page - 1) * limit
-    end = start + limit
+    sliced = rows[start:start + limit]
 
-    sliced = entries[start:end]
-
-    result = []
-    for e in sliced:
-        stat = e.stat()
-        result.append({
-            "name": e.name,
-            "is_file": e.is_file(),
-            "is_dir": e.is_dir(),
-            "size": stat.st_size,
-            "modified": stat.st_mtime,
-        })
+    data = [
+        {
+            "name": r[0],
+            "is_file": bool(r[1]),
+            "size": r[2],
+            "modified": r[3],
+        }
+        for r in sliced
+    ]
 
     return {
         "page": page,
         "limit": limit,
-        "total": len(entries),
-        "data": result
+        "total": len(rows),
+        "data": data,
     }
 
-router.post("/create_folder")
-def create_folder(req: Request, path: str = "/", name: str = ""):
-    path = BASE_DIR + path
-    try: 
-        os.mkdir(path + name)
-    except FileExistsError:
-        return
-    return
 
-router.get("/delete")
-def delete(req: Request, path: str = "/"):
-    path = BASE_DIR + path
-    try: 
-        os.remove(path)
-    except FileNotFoundError:
-        return
-    return
+# Create a folder under the respective path
+@router.post("/create_folder")
+def create_folder(path: str = "/", name: str = ""):
+    if not name:
+        raise HTTPException(400, "Folder name required")
 
-router.get("/rename")
-def rename(req: Request, path: str = "/", name: str = ""):
-    path = BASE_DIR + path
-    try: 
-        os.rename(path, path + name)
-    except FileNotFoundError:
-        return
-    return
+    parent = BASE_DIR / path.lstrip("/")
+    new_folder = parent / name
+
+    if new_folder.exists():
+        raise HTTPException(400, "Folder already exists")
+
+    new_folder.mkdir(parents=True, exist_ok=False)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT OR IGNORE INTO files (path, name, parent, is_file, size, modified, created)
+        VALUES (?, ?, ?, 0, 0, ?, ?)
+        """,
+        (str(new_folder), name, str(parent), time.time(), time.time()),
+    )
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok", "created": str(new_folder)}
+
+
+# Delete a file or folder
+@router.delete("/delete")
+def delete(path: str = "/"):
+    target = BASE_DIR / path.lstrip("/")
+
+    if not target.exists():
+        raise HTTPException(404, "Path not found")
+
+    conn = db()
+    cur = conn.cursor()
+
+    if target.is_file():
+        target.unlink()
+        cur.execute("DELETE FROM files WHERE path = ?", (str(target),))
+    else:
+        for item in target.glob("**/*"):
+            if item.is_file():
+                item.unlink()
+                cur.execute("DELETE FROM files WHERE path = ?", (str(item),))
+        for item in sorted(target.glob("**/*"), reverse=True):
+            if item.is_dir():
+                item.rmdir()
+                cur.execute("DELETE FROM files WHERE path = ?", (str(item),))
+        target.rmdir()
+        cur.execute("DELETE FROM files WHERE path = ?", (str(target),))
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok", "deleted": path}
+
+
+# Rename a file or folder
+@router.put("/rename")
+def rename(path: str = "/", name: str = ""):
+    if not name:
+        raise HTTPException(400, "New name required")
+
+    target = BASE_DIR / path.lstrip("/")
+
+    if not target.exists():
+        raise HTTPException(404, "Path not found")
+
+    new_path = target.parent / name
+
+    if new_path.exists():
+        raise HTTPException(400, "Name already exists")
+
+    target.rename(new_path)
+
+    conn = db()
+    cur = conn.cursor()
+
+    cur.execute(
+        "UPDATE files SET path = ?, name = ?, parent = ? WHERE path = ?",
+        (
+            str(new_path),
+            name,
+            str(new_path.parent),
+            str(target),
+        ),
+    )
+
+    # if folder → update all children paths
+    if new_path.is_dir():
+        old_prefix = str(target)
+        new_prefix = str(new_path)
+
+        cur.execute("SELECT path FROM files WHERE path LIKE ?", (old_prefix + "/%",))
+        rows = cur.fetchall()
+
+        for (child_path,) in rows:
+            updated = child_path.replace(old_prefix, new_prefix, 1)
+            cur.execute(
+                "UPDATE files SET path = ?, parent = ? WHERE path = ?",
+                (
+                    updated,
+                    str(Path(updated).parent),
+                    child_path,
+                ),
+            )
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok", "old": str(target), "new": str(new_path)}
