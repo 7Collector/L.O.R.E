@@ -13,3 +13,5 @@ def embed_image(path: str):
         emb = model.encode_image(tensor)
     emb = emb / emb.norm(dim=-1, keepdim=True)
     return emb.cpu().numpy()[0].tolist()
+
+def embed_video(path: str):

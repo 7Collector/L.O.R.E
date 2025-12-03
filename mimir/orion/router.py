@@ -10,12 +10,15 @@ import mimetypes
 from constants import BASE_DIR, DB_PATH
 
 router = APIRouter()
-BASE_DIR = Path(BASE_DIR / "orion")
+BASE_DIR = Path(BASE_DIR / "files")
 THUMB_DIR = BASE_DIR / ".thumbs"
 THUMB_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def db():
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
 
 
 def generate_thumb(src: Path, dest: Path):
@@ -24,11 +27,11 @@ def generate_thumb(src: Path, dest: Path):
     img.save(dest, "JPEG")
 
 
-# ======================================================
+# Upload Media File
 @router.post("/upload")
 async def upload_media(
     file: UploadFile = File(...),
-    album: str | None = Query(None)
+    album_id: int | None = Query(None),
 ):
     content = await file.read()
 
@@ -54,12 +57,34 @@ async def upload_media(
 
     conn = db()
     cur = conn.cursor()
+
     cur.execute(
         """
-        INSERT INTO photos (path, name, mime, is_video, width, height, duration, size, created, modified)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO files (path, name, parent, is_file, size, modified, created)
+        VALUES (?, ?, ?, 1, ?, ?, ?)
         """,
         (
+            str(save_path),
+            file.filename,
+            str(save_path.parent),
+            size,
+            now,
+            now,
+        ),
+    )
+
+    file_id = cur.lastrowid
+
+    cur.execute(
+        """
+        INSERT INTO photos (
+            file_id, path, name, mime, is_video,
+            width, height, duration, size, created, modified
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            file_id,
             str(save_path),
             file.filename,
             mime,
@@ -72,26 +97,27 @@ async def upload_media(
             now,
         ),
     )
-    media_id = cur.lastrowid
 
     if album:
         cur.execute(
-            "INSERT OR IGNORE INTO album_items (album_id, media_id) VALUES ((SELECT id FROM albums WHERE name=?), ?)",
-            (album, media_id),
+            """
+            INSERT OR IGNORE INTO album_items (album_id, media_id)
+            """,
+            (album_id, file_id),
         )
 
     conn.commit()
     conn.close()
 
-    return {"id": media_id, "name": file.filename}
+    return {"id": file_id, "name": file.filename}
 
 
-# ======================================================
+# Download Media File
 @router.get("/file/{media_id}")
 def get_file(media_id: int):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT path FROM photos WHERE id = ?", (media_id,))
+    cur.execute("SELECT path FROM files WHERE id = ?", (media_id,))
     row = cur.fetchone()
     conn.close()
 
@@ -101,12 +127,12 @@ def get_file(media_id: int):
     return FileResponse(row[0])
 
 
-# ======================================================
+# Download Thumbnail File
 @router.get("/thumb/{media_id}")
 def get_thumb(media_id: int):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT path FROM photos WHERE id = ?", (media_id,))
+    cur.execute("SELECT path FROM photos WHERE file_id = ?", (media_id,))
     row = cur.fetchone()
     conn.close()
 
@@ -120,13 +146,18 @@ def get_thumb(media_id: int):
     return FileResponse(thumb_path)
 
 
-# ======================================================
+# Get Metadata
 @router.get("/info/{media_id}")
 def get_info(media_id: int):
     conn = db()
     cur = conn.cursor()
     cur.execute(
-        "SELECT id, path, name, mime, is_video, width, height, duration, size, created, modified, favorite FROM photos WHERE id = ?",
+        """
+        SELECT file_id, path, name, mime, is_video,
+               width, height, duration, size,
+               created, modified, favorite
+        FROM photos WHERE file_id = ?
+        """,
         (media_id,),
     )
     row = cur.fetchone()
@@ -151,15 +182,12 @@ def get_info(media_id: int):
     }
 
 
-# ======================================================
+# Get Media List
 @router.get("/list")
-def list_media(
-    page: int = 1,
-    limit: int = 50,
-):
+def list_media(page: int = 1, limit: int = 50):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT id, name, mime, favorite FROM photos ORDER BY created DESC")
+    cur.execute("SELECT file_id, name, mime, favorite FROM photos ORDER BY created DESC")
     rows = cur.fetchall()
     conn.close()
 
@@ -182,7 +210,7 @@ def list_media(
     }
 
 
-# ======================================================
+# Create Album
 @router.post("/album")
 def create_album(name: str):
     conn = db()
@@ -196,7 +224,7 @@ def create_album(name: str):
     return {"status": "ok", "album": name}
 
 
-# ======================================================
+# Add Media to Album
 @router.post("/album/{album_id}/add")
 def add_to_album(album_id: int, media_id: int):
     conn = db()
@@ -210,7 +238,7 @@ def add_to_album(album_id: int, media_id: int):
     return {"status": "ok"}
 
 
-# ======================================================
+# List all Albums
 @router.get("/albums")
 def list_albums():
     conn = db()
@@ -221,16 +249,16 @@ def list_albums():
     return [{"id": r[0], "name": r[1]} for r in rows]
 
 
-# ======================================================
+# List Album Items, NEEDS PAGINATION
 @router.get("/album/{album_id}")
 def album_items(album_id: int):
     conn = db()
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT photos.id, photos.name, photos.mime
+        SELECT photos.file_id, photos.name, photos.mime
         FROM album_items
-        JOIN photos ON photos.id = album_items.media_id
+        JOIN photos ON photos.file_id = album_items.media_id
         WHERE album_items.album_id = ?
         ORDER BY photos.created DESC
         """,
@@ -249,12 +277,12 @@ def album_items(album_id: int):
     ]
 
 
-# ======================================================
+# Delete Media File
 @router.delete("/delete/{media_id}")
 def delete_media(media_id: int):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT path FROM photos WHERE id = ?", (media_id,))
+    cur.execute("SELECT path FROM files WHERE id = ?", (media_id,))
     row = cur.fetchone()
 
     if not row:
@@ -270,7 +298,10 @@ def delete_media(media_id: int):
         thumb.unlink()
 
     cur.execute("DELETE FROM album_items WHERE media_id = ?", (media_id,))
-    cur.execute("DELETE FROM photos WHERE id = ?", (media_id,))
+
+    cur.execute("DELETE FROM photos WHERE file_id = ?", (media_id,))
+
+    cur.execute("DELETE FROM files WHERE id = ?", (media_id,))
 
     conn.commit()
     conn.close()
@@ -278,22 +309,23 @@ def delete_media(media_id: int):
     return {"status": "ok"}
 
 
-# ======================================================
+# Favourite Media
 @router.post("/favorite/{media_id}")
 def favorite(media_id: int):
     conn = db()
     cur = conn.cursor()
-    cur.execute("UPDATE photos SET favorite = 1 WHERE id = ?", (media_id,))
+    cur.execute("UPDATE photos SET favorite = 1 WHERE file_id = ?", (media_id,))
     conn.commit()
     conn.close()
     return {"favorite": True}
 
 
+# Unfavourite Media
 @router.post("/unfavorite/{media_id}")
 def unfavorite(media_id: int):
     conn = db()
     cur = conn.cursor()
-    cur.execute("UPDATE photos SET favorite = 0 WHERE id = ?", (media_id,))
+    cur.execute("UPDATE photos SET favorite = 0 WHERE file_id = ?", (media_id,))
     conn.commit()
     conn.close()
     return {"favorite": False}

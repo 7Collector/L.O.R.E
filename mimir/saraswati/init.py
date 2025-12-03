@@ -1,7 +1,6 @@
 from pathlib import Path
 import sqlite3
-
-DB_PATH = Path("L:/saraswati.db")
+from ..constants import *
 
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -22,7 +21,7 @@ CREATE TABLE IF NOT EXISTS files (
 );
 
 CREATE TABLE IF NOT EXISTS photos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_id INTEGER PRIMARY KEY,
     path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     mime TEXT,
@@ -36,7 +35,7 @@ CREATE TABLE IF NOT EXISTS photos (
     favorite BOOLEAN DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS albums ( fkjdsklfjkd
+CREATE TABLE IF NOT EXISTS albums (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
     created REAL

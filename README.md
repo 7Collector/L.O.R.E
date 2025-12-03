@@ -12,7 +12,6 @@ LORE is built around a set of focused components, each named after figures or ar
 Bifrost  → API Gateway & Router
 Odin     → Local LLM Engine
 Mimir    → Storage System
-│
 ├── Orion      → Media & Photo Intelligence
 └── Saraswati  → Metadata Database
 Freya    → Frontend Android App
@@ -22,14 +21,6 @@ Psyche   → Vector Embedding Database
 ---
 
 ## Components
-
-### Freya — Frontend (Jetpack Compose)
-
-Freya is the UI layer of LORE, built using Kotlin and Jetpack Compose.
-
-* Mobile-first interface for browsing files, media, and chatting with Odin.
-* Connects directly to Bifrost.
-* Provides a polished, modern experience for interacting with the whole system.
 
 ### Bifrost — Router & Gateway
 
@@ -67,6 +58,14 @@ A SQLite‑based metadata store.
 
 * Tracks permissions, timestamps, file relationships
 * Stores metadata for both Mimir and Orion
+
+### Freya — Frontend (Jetpack Compose)
+
+Freya is the UI layer of LORE, built using Kotlin and Jetpack Compose.
+
+* Mobile-first interface for browsing files, media, and chatting with Odin.
+* Connects directly to Bifrost.
+* Provides a polished, modern experience for interacting with the whole system.
 
 ### Psyche — Vector Database
 
@@ -108,12 +107,6 @@ Stores and retrieves embeddings for semantic search.
 * Web UI for browsing Mimir & Orion
 * Real‑time media processing
 * Cross‑module event system
-
----
-
-## License
-
-*(Add your chosen license here)*
 
 ---
 

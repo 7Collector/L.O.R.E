@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from constants import BASE_DIR, DB_PATH
 
 router = APIRouter()
-BASE_DIR = Path(BASE_DIR / "mimir")
+BASE_DIR = Path(BASE_DIR / "files")
 
 def db():
     return sqlite3.connect(DB_PATH)
