@@ -15,3 +15,4 @@ def embed_image(path: str):
     return emb.cpu().numpy()[0].tolist()
 
 def embed_video(path: str):
+    return
