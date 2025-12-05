@@ -29,10 +29,11 @@ fun MainDrawer(mainViewModel: MainViewModel) {
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.titleLarge
             )
+
             HorizontalDivider()
 
             Text(
-                "Section 1",
+                "Modes",
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.titleMedium
             )
@@ -49,6 +50,15 @@ fun MainDrawer(mainViewModel: MainViewModel) {
                     onClick = { mainViewModel.onScreenSelected(it) }
                 )
             }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+
+            Text(
+                "Screen Specific Section",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

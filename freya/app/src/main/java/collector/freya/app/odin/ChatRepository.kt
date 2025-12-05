@@ -1,4 +1,8 @@
 package collector.freya.app.odin
 
-class ChatRepository {
+import collector.freya.app.network.ChatApiService
+import javax.inject.Inject
+
+class ChatRepository @Inject constructor(private val apiService: ChatApiService) {
+
 }
