@@ -3,6 +3,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from openai import OpenAI
 from odin.tools import tools, web_search, vector_search, metadata, describe_photo, file_search, read_file, read_webpage
 from odin.tools.tools import available_tools
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.get_env("API_KEY")
 
 router = APIRouter()
 
@@ -10,6 +15,11 @@ client = OpenAI(base_url="http://127.0.0.1:8000", api_key="none")
 
 @router.websocket("/chat/{chat_id}")
 async def chat_socket(ws: WebSocket, chat_id: str | None = None):
+    user_key = ws.headers.get("X-Api-Key")
+    if user_key != API_KEY:
+        await ws.close(code=1008)
+        return False
+
     await ws.accept()
     if(chat_id == None): chat_id = create_new_chat()
     messages = get_chat_history(chat_id)

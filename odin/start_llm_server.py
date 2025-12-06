@@ -13,7 +13,17 @@ THREADS       = "16"
 PORT          = "8000"
 FLASH_ATTN    = "on"
 
+server_url = f"http://127.0.0.1:{PORT}/health"
+
 def start_llama_server():
+
+    try:
+        with urlopen(server_url) as response:
+            if response.status == 200:
+                print("\nServer is already running!")
+    except Exception:
+            print(".", end="", flush=True)
+
     cmd = [
         LLAMA_SERVER_EXE,
         "-m", MODEL_GGUF,
@@ -30,8 +40,6 @@ def start_llama_server():
     print("Port:", PORT)
 
     process = subprocess.Popen(cmd)
-
-    server_url = f"http://127.0.0.1:{PORT}/health"
     
     max_retries = 60
     for _ in range(max_retries):
