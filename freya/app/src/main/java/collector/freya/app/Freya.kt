@@ -21,22 +21,30 @@ import collector.freya.app.odin.ChatScreen
 import collector.freya.app.orion.PhotosScreen
 import collector.freya.app.settings.SettingsScreen
 import collector.freya.app.ui.theme.FreyaTheme
+import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(mainViewModel: MainViewModel = hiltViewModel()) {
+fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Open)
     val scope = rememberCoroutineScope()
 
-    val uiState by mainViewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
     FreyaTheme {
         ModalNavigationDrawer(
-            drawerState = drawerState, drawerContent = { MainDrawer(mainViewModel) }) {
+            drawerState = drawerState, drawerContent = {
+                MainDrawer(viewModel) {
+                    scope.launch {
+                        drawerState.close()
+                    }
+                }
+            }) {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
-                snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = { AppTopBar(viewModel) }) { padding ->
                 Box(Modifier.padding(padding)) {
                     when (uiState.mainScreenState) {
                         MainScreenState.ChatScreen -> ChatScreen()
