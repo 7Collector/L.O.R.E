@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun MainDrawer(mainViewModel: MainViewModel) {
+fun MainDrawer(viewModel: MainViewModel, closeDrawer: () -> Unit) {
     ModalDrawerSheet() {
         Column(
             modifier = Modifier
@@ -29,10 +29,11 @@ fun MainDrawer(mainViewModel: MainViewModel) {
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.titleLarge
             )
+
             HorizontalDivider()
 
             Text(
-                "Section 1",
+                "Modes",
                 modifier = Modifier.padding(16.dp),
                 style = MaterialTheme.typography.titleMedium
             )
@@ -46,9 +47,21 @@ fun MainDrawer(mainViewModel: MainViewModel) {
                         )
                     },
                     selected = true,
-                    onClick = { mainViewModel.onScreenSelected(it) }
+                    onClick = {
+                        viewModel.onScreenSelected(it)
+                        closeDrawer()
+                    }
                 )
             }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+
+            Text(
+                "Screen Specific Section",
+                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
     }
 }

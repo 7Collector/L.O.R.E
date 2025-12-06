@@ -19,7 +19,7 @@ data class MainScreenUIState(
 
 @HiltViewModel
 class MainViewModel @Inject constructor() : ViewModel() {
-    private val _uiState = MutableStateFlow<MainScreenUIState>(MainScreenUIState())
+    private val _uiState = MutableStateFlow(MainScreenUIState())
     val uiState = _uiState.asStateFlow()
     
     fun onScreenSelected(screen: MainScreenState) {
