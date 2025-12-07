@@ -1,9 +1,11 @@
 package collector.freya.app
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -35,16 +37,20 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     FreyaTheme {
         ModalNavigationDrawer(
             drawerState = drawerState, drawerContent = {
-                MainDrawer(viewModel) {
+                MainDrawer(viewModel, uiState.mainScreenState) {
                     scope.launch {
                         drawerState.close()
                     }
                 }
             }) {
             Scaffold(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
                 snackbarHost = { SnackbarHost(snackbarHostState) },
-                topBar = { AppTopBar(viewModel) }) { padding ->
+                topBar = { AppTopBar(viewModel, uiState.mainScreenState) {
+                    scope.launch {
+                        drawerState.open()
+                    }
+                } }) { padding ->
                 Box(Modifier.padding(padding)) {
                     when (uiState.mainScreenState) {
                         MainScreenState.ChatScreen -> ChatScreen()

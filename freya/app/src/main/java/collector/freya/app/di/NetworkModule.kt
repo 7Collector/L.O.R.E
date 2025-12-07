@@ -15,7 +15,7 @@ import retrofit2.Retrofit
 object NetworkModule {
 
     val contentType = "application/json".toMediaType()
-    const val BASE_URL = ""
+    const val BASE_URL = "https://freyaslittlehelper.lt"
 
     @Provides
     fun provideRetrofitInstance(): Retrofit {

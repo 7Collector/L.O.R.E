@@ -49,9 +49,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // Input Text Functions
+    // Input Related Functions
     fun updateInput(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun removeAttachment(attachment: Attachment) {
+        _uiState.update { state -> state.copy(attachedElements = state.attachedElements.filter { it != attachment }) }
     }
 
     private fun clearInputText() {
@@ -71,6 +75,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // Options Bottom Sheet Functions
+    fun toggleBottomSheet() {
+        _uiState.update { it.copy(isOptionsBottomSheetOpen = !it.isOptionsBottomSheetOpen) }
+    }
+
     // Send Message Function
     fun sendMessage() {
         // Create Message
@@ -83,6 +92,10 @@ class ChatViewModel @Inject constructor(
             attachments = uiState.value.attachedElements,
             model = uiState.value.selectedModel,
         )
+
+        // Clear
+        clearInputText()
+
         // Send Message
         chatRepository.sendMessage(message)
     }
