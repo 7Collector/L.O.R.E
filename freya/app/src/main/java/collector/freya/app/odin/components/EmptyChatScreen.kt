@@ -70,10 +70,10 @@ fun EmptyChatScreen(
         Spacer(Modifier.height(48.dp))
 
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(minSize = 220.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.widthIn(max = 600.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             items(randomPrompts) { prompt ->
                 SuggestionCard(
