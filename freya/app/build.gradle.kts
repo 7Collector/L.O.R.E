@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
+    kotlin("plugin.serialization")
 }
 
 android {
@@ -76,4 +77,7 @@ dependencies {
     // Retrofit
     implementation(libs.retrofit)
     implementation(libs.retrofit2.kotlinx.serialization.converter)
+
+    // Material Icons
+    implementation(libs.androidx.compose.material.icons.extended)
 }

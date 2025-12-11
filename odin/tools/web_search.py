@@ -6,7 +6,7 @@ load_dotenv()
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 GOOGLE_SEARCH_CX = os.getenv("GOOGLE_SEARCH_CX")
 
-def web_search(query, n):
+def web_search(query, n = 5):
     url = "https://www.googleapis.com/customsearch/v1"
 
     params = {

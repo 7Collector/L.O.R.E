@@ -6,7 +6,6 @@ import collector.freya.app.odin.models.AiModel
 import collector.freya.app.odin.models.Attachment
 import collector.freya.app.odin.models.ChatMessage
 import collector.freya.app.odin.models.MessageState
-import collector.freya.app.odin.models.Sender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,14 +28,18 @@ data class ChatScreenUIState(
     val attachedElements: List<Attachment> = emptyList(),
     val selectedModel: AiModel = AiModel.NORMAL,
     val webSearchEnabled: Boolean = true,
+    val fileAccess: Boolean = false
 )
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val chatRepository: ChatRepository,
 ) : ViewModel() {
+    private val chatRepository = ChatRepository("")
+
     private val _uiState = MutableStateFlow(ChatScreenUIState())
     val uiState = _uiState.asStateFlow()
+
+    private var chatId: String? = null
 
     private val _events = MutableSharedFlow<UIEvent>()
     val events = _events.asSharedFlow()
@@ -46,12 +49,19 @@ class ChatViewModel @Inject constructor(
             chatRepository.messages.collect { list ->
                 _uiState.update { it.copy(messages = list) }
             }
+            chatRepository.chatId.collect {
+                chatId = it
+            }
         }
     }
 
-    // Input Text Functions
+    // Input Related Functions
     fun updateInput(text: String) {
         _uiState.update { it.copy(inputText = text) }
+    }
+
+    fun removeAttachment(attachment: Attachment) {
+        _uiState.update { state -> state.copy(attachedElements = state.attachedElements.filter { it != attachment }) }
     }
 
     private fun clearInputText() {
@@ -71,18 +81,39 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // Options Bottom Sheet Functions
+    fun toggleBottomSheet() {
+        _uiState.update { it.copy(isOptionsBottomSheetOpen = !it.isOptionsBottomSheetOpen) }
+    }
+
+    fun onModelSelected(model: AiModel) {
+        _uiState.update { it.copy(selectedModel = model) }
+    }
+
+    fun onWebSearchModified(enabled: Boolean) {
+        _uiState.update { it.copy(webSearchEnabled = enabled) }
+    }
+
+    fun onFileAccessModified(enabled: Boolean) {
+        _uiState.update { it.copy(fileAccess = enabled) }
+    }
+
     // Send Message Function
     fun sendMessage() {
         // Create Message
         val message = ChatMessage(
-            text = uiState.value.inputText,
+            prompt = uiState.value.inputText,
             id = UUID.randomUUID().toString(),
+            chatId = chatId,
             timestamp = System.currentTimeMillis(),
             state = MessageState.PROCESSING,
-            sender = Sender.USER,
             attachments = uiState.value.attachedElements,
             model = uiState.value.selectedModel,
         )
+
+        // Clear
+        clearInputText()
+
         // Send Message
         chatRepository.sendMessage(message)
     }

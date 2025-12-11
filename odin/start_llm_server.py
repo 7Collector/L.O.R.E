@@ -12,6 +12,7 @@ GPU_LAYERS    = "49"
 THREADS       = "16"
 PORT          = "8000"
 FLASH_ATTN    = "on"
+CHAT_TEMPLATE = "llama3"
 
 server_url = f"http://127.0.0.1:{PORT}/health"
 
