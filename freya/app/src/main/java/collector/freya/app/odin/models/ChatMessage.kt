@@ -1,11 +1,8 @@
 package collector.freya.app.odin.models
 
-enum class Sender {
-    AI,
-    USER,
-    SYSTEM
-}
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class MessageState(val showText: String) {
     PROCESSING("Sending..."),
     SUCCESS(""),
@@ -13,18 +10,22 @@ enum class MessageState(val showText: String) {
     NETWORK_ERROR("Network error!")
 }
 
+@Serializable
 enum class AiModel {
     NORMAL,
     DEEP,
     CLOUD
 }
 
+@Serializable
 data class ChatMessage(
     val id: String,
+    val chatId: String? = null,
     val timestamp: Long,
     val state: MessageState,
-    val sender: Sender,
     val attachments: List<Attachment> = emptyList(),
-    val text: String,
+    val updates: List<String> = emptyList(),
+    val prompt: String,
+    val reply: String = "",
     val model: AiModel
 )

@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -17,13 +20,18 @@ import collector.freya.app.odin.components.ChatMessageItem
 import collector.freya.app.odin.components.EmptyChatScreen
 import collector.freya.app.odin.components.InputBottomBar
 import collector.freya.app.odin.components.MoreOptionsBottomSheet
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
 
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // Components State
     val listState = rememberLazyListState()
+    val sheetState = rememberModalBottomSheetState()
 
     LaunchedEffect("k") {
         viewModel.events.collect { event ->
@@ -54,6 +62,14 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
     }
 
     if (uiState.isOptionsBottomSheetOpen) {
-        MoreOptionsBottomSheet(viewModel)
+        ModalBottomSheet(onDismissRequest = {
+            scope.launch {
+                sheetState.hide()
+            }.invokeOnCompletion {
+                viewModel.toggleBottomSheet()
+            }
+        }, sheetState = sheetState) {
+            MoreOptionsBottomSheet(viewModel)
+        }
     }
 }
