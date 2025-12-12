@@ -102,7 +102,7 @@ private fun BigActionButton(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = modifier.height(100.dp)
+        modifier = modifier.height(100.dp).border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
     ) {
         Column(
             verticalArrangement = Arrangement.Center,

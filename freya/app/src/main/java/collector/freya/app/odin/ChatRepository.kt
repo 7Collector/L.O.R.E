@@ -19,61 +19,105 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.WebSocket
 
+enum class ConnectionState {
+    CONNECTED,
+    CONNECTING,
+    DISCONNECTED
+}
+
+data class SocketState(
+    val chatId: String?,
+    val connectionState: ConnectionState = ConnectionState.CONNECTING,
+    val isResponding: Boolean = false,
+    val messages: List<ChatMessage> = emptyList(),
+)
+
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class ChatRepository(
     private var id: String?,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    private var isConnected = false
     private val okHttpClient = OkHttpClient()
     private var webSocket: WebSocket? = null
     private val webSocketListener = WebSocketListener(scope)
 
-    // Messages Flow
-    private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
-    val messages: StateFlow<List<ChatMessage>> = _messages
+    private val _state = MutableStateFlow(SocketState(chatId = id))
+    val state: StateFlow<SocketState> = _state
 
-    private val _chatId = MutableStateFlow<String?>(id)
-    val chatId: StateFlow<String?> = _chatId
+    private val replyBuffers = mutableMapOf<String, StringBuilder>()
 
     init {
         connectWebSocket()
 
         scope.launch {
             webSocketListener.socketEventChannel.consumeAsFlow().collect { event ->
-                // Update chat id
-                if (id == null) _chatId.update { event.chatId }
+                if (id == null) {
+                    id = event.chatId
+                    _state.update { it.copy(chatId = event.chatId) }
+                }
 
                 when (event.type) {
-                    SocketType.CONNECTED -> isConnected = true
-                    SocketType.MESSAGE -> _messages.update { messages ->
-                        messages.map { msg ->
-                            if (msg.id == event.messageId) {
-                                msg.copy(reply = msg.reply + event.text)
-                            } else msg
+                    SocketType.CONNECTED -> {
+                        _state.update { it.copy(connectionState = ConnectionState.CONNECTED) }
+                    }
+
+                    SocketType.MESSAGE -> {
+                        val buffer =
+                            replyBuffers.getOrPut(event.messageId.toString()) { StringBuilder() }
+                        buffer.append(event.text)
+                        _state.update { s ->
+                            s.copy(
+                                messages = s.messages.map { msg ->
+                                    if (msg.id == event.messageId) msg.copy(reply = buffer.toString())
+                                    else msg
+                                }
+                            )
                         }
                     }
 
-                    SocketType.UPDATE -> _messages.update { messages ->
-                        messages.map { msg ->
-                            if (msg.id == event.messageId) {
-                                msg.copy(updates = (msg.updates + event.text.toString()))
-                            } else msg
+                    SocketType.UPDATE -> {
+                        _state.update { s ->
+                            s.copy(
+                                messages = s.messages.map { msg ->
+                                    if (msg.id == event.messageId) {
+                                        if (event.text == "end") msg.copy(state = MessageState.SUCCESS)
+                                        else msg.copy(updates = msg.updates + event.text.toString())
+                                    } else msg
+                                }
+                            )
                         }
                     }
 
                     SocketType.EXCEPTION -> {
-                        isConnected = false
-                        _messages.update { messages ->
-                            messages.map { msg ->
-                                if (msg.id == event.messageId) {
-                                    msg.copy(state = MessageState.FAILED)
-                                } else msg
-                            }
+                        _state.update { s ->
+                            s.copy(
+                                isResponding = false,
+                                connectionState = ConnectionState.DISCONNECTED,
+                                messages = s.messages.map { msg ->
+                                    val last = s.messages.last()
+                                    when {
+                                        msg.id == event.messageId -> msg.copy(state = MessageState.FAILED)
+                                        msg == last  -> msg.copy(state = MessageState.FAILED)
+                                        else -> msg
+                                    }
+                                }
+                            )
                         }
                     }
-                    SocketType.CLOSED -> isConnected = false
+
+                    SocketType.CLOSED -> {
+                        _state.update { s ->
+                            s.copy(
+                                isResponding = false,
+                                connectionState = ConnectionState.DISCONNECTED,
+                                messages = s.messages.map { msg ->
+                                    val last = s.messages.last()
+                                    if (msg == last && last.state != MessageState.SUCCESS) {
+                                        msg.copy(state = MessageState.FAILED)
+                                    } else msg
+                                })
+                        }
+                    }
                 }
             }
         }
@@ -81,11 +125,12 @@ class ChatRepository(
 
     private fun connectWebSocket(chatId: String? = null) {
         webSocket = okHttpClient.newWebSocket(createRequest(chatId), webSocketListener)
+        _state.update { it.copy(connectionState = ConnectionState.CONNECTING) }
     }
 
     fun sendMessage(message: ChatMessage) {
-        _messages.update { it + message }
-        if (webSocket == null || !isConnected) connectWebSocket()
+        _state.update { it.copy(isResponding = true, messages = it.messages + message) }
+        if (webSocket == null || state.value.connectionState != ConnectionState.CONNECTED) connectWebSocket()
         webSocket!!.send(Json.encodeToString(message))
     }
 
@@ -93,8 +138,6 @@ class ChatRepository(
         val websocketURL =
             "wss://freyaslittlehelper.loca.lt/odin/chat/${chatId}?x-api-key=${apiKey}"
 
-        return Request.Builder()
-            .url(websocketURL)
-            .build()
+        return Request.Builder().url(websocketURL).build()
     }
 }

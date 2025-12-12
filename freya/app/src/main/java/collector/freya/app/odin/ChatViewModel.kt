@@ -23,6 +23,8 @@ sealed interface UIEvent {
 
 data class ChatScreenUIState(
     val isOptionsBottomSheetOpen: Boolean = false,
+    val connectionState: ConnectionState = ConnectionState.CONNECTING,
+    val isResponding: Boolean = false,
     val messages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
     val attachedElements: List<Attachment> = emptyList(),
@@ -46,11 +48,15 @@ class ChatViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            chatRepository.messages.collect { list ->
-                _uiState.update { it.copy(messages = list) }
-            }
-            chatRepository.chatId.collect {
-                chatId = it
+            chatRepository.state.collect { state ->
+                _uiState.update {
+                    chatId = state.chatId
+                    it.copy(
+                        messages = state.messages,
+                        connectionState = state.connectionState,
+                        isResponding = state.isResponding
+                    )
+                }
             }
         }
     }
@@ -116,5 +122,9 @@ class ChatViewModel @Inject constructor(
 
         // Send Message
         chatRepository.sendMessage(message)
+    }
+
+    fun stopGeneration() {
+
     }
 }

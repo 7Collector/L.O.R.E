@@ -16,8 +16,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import collector.freya.app.helpers.conditional
 import collector.freya.app.mimir.DriveScreen
 import collector.freya.app.odin.ChatScreen
 import collector.freya.app.orion.PhotosScreen
@@ -44,14 +46,22 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                 }
             }) {
             Scaffold(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                topBar = { AppTopBar(viewModel, uiState.mainScreenState) {
-                    scope.launch {
-                        drawerState.open()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface),
+                snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                Box(Modifier
+                    .fillMaxSize()
+                    .conditional(false, { Modifier.padding(padding) })) {
+                    AppTopBar(
+                        Modifier.align(Alignment.TopCenter),
+                        viewModel,
+                        uiState.mainScreenState
+                    ) {
+                        scope.launch {
+                            drawerState.open()
+                        }
                     }
-                } }) { padding ->
-                Box(Modifier.padding(padding)) {
                     when (uiState.mainScreenState) {
                         MainScreenState.ChatScreen -> ChatScreen()
                         MainScreenState.DriveScreen -> DriveScreen()
