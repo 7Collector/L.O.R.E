@@ -1,11 +1,17 @@
 package collector.freya.app.odin
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import collector.freya.app.database.chats.ChatMessagesDao
+import collector.freya.app.database.chats.ChatsDao
 import collector.freya.app.odin.models.AiModel
 import collector.freya.app.odin.models.Attachment
 import collector.freya.app.odin.models.ChatMessage
 import collector.freya.app.odin.models.MessageState
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,20 +39,29 @@ data class ChatScreenUIState(
     val fileAccess: Boolean = false
 )
 
-@HiltViewModel
-class ChatViewModel @Inject constructor(
+@AssistedFactory
+interface ChatViewModelFactory {
+    fun create(chatId: String): ChatViewModel
+}
+
+@HiltViewModel(assistedFactory = ChatViewModelFactory::class)
+class ChatViewModel @AssistedInject constructor(
+    chatsDao: ChatsDao,
+    chatMessagesDao: ChatMessagesDao,
+    @Assisted val id: String
 ) : ViewModel() {
-    private val chatRepository = ChatRepository("")
+    private val chatRepository = ChatRepository(id, chatsDao, chatMessagesDao)
 
     private val _uiState = MutableStateFlow(ChatScreenUIState())
     val uiState = _uiState.asStateFlow()
 
-    private var chatId: String? = null
+    private var chatId: String? = id
 
     private val _events = MutableSharedFlow<UIEvent>()
     val events = _events.asSharedFlow()
 
     init {
+        Log.d("ChatViewModel", "NEW ViewModel id=$id hash=${hashCode()}")
         viewModelScope.launch {
             chatRepository.state.collect { state ->
                 _uiState.update {
@@ -59,6 +74,11 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        chatRepository.clear()
     }
 
     // Input Related Functions

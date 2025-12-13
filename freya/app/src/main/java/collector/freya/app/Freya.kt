@@ -42,7 +42,10 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     FreyaTheme {
         ModalNavigationDrawer(
             drawerState = drawerState, drawerContent = {
-                MainDrawer(viewModel, uiState.mainScreenState) {
+                MainDrawer(
+                    viewModel, uiState.mainScreenState,
+                    viewModel::setCurrentChatId,
+                ) {
                     scope.launch {
                         drawerState.close()
                     }
@@ -59,16 +62,14 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                         .conditional(false, { Modifier.padding(padding) })
                 ) {
                     when (uiState.mainScreenState) {
-                        MainScreenState.ChatScreen -> ChatScreen()
+                        MainScreenState.ChatScreen -> ChatScreen(uiState.currentChatId)
                         MainScreenState.DriveScreen -> DriveScreen()
                         MainScreenState.PhotosScreen -> PhotosScreen(setAppBarVisibility = viewModel::setAppBarVisibility)
                         MainScreenState.SettingsScreen -> SettingsScreen()
                     }
                     if (uiState.showAppBar) {
                         AppTopBar(
-                            Modifier.align(Alignment.TopCenter),
-                            viewModel,
-                            uiState.mainScreenState
+                            Modifier.align(Alignment.TopCenter), viewModel, uiState.mainScreenState
                         ) {
                             scope.launch {
                                 drawerState.open()

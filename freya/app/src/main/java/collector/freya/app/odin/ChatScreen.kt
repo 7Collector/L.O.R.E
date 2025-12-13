@@ -1,5 +1,6 @@
 package collector.freya.app.odin
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -14,6 +15,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,7 +32,13 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
+fun ChatScreen(
+    chatId: String,
+    viewModel: ChatViewModel = hiltViewModel<ChatViewModel, ChatViewModelFactory>(
+        key = chatId,
+        creationCallback = { factory -> factory.create(chatId) }
+    ),
+) {
 
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()

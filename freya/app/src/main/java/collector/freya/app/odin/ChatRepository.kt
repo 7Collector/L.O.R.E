@@ -1,14 +1,21 @@
 package collector.freya.app.odin
 
+import android.util.Log
+import collector.freya.app.database.chats.ChatMessagesDao
+import collector.freya.app.database.chats.ChatsDao
+import collector.freya.app.database.chats.models.Chat
+import collector.freya.app.database.chats.models.toDomain
 import collector.freya.app.network.SocketType
 import collector.freya.app.network.WebSocketListener
 import collector.freya.app.odin.models.ChatMessage
 import collector.freya.app.odin.models.MessageState
+import collector.freya.app.odin.models.toEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
@@ -34,7 +41,9 @@ data class SocketState(
 
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 class ChatRepository(
-    private var id: String?,
+    private var id: String,
+    private val chatsDao: ChatsDao,
+    private val chatMessagesDao: ChatMessagesDao,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val okHttpClient = OkHttpClient()
@@ -47,13 +56,17 @@ class ChatRepository(
     private val replyBuffers = mutableMapOf<String, StringBuilder>()
 
     init {
-        connectWebSocket()
+        connectWebSocket(id)
 
         scope.launch {
+            _state.update { it.copy(messages = getMessagesForChat(id)) }
+
             webSocketListener.socketEventChannel.consumeAsFlow().collect { event ->
-                if (id == null) {
+                if (event.chatId != null) {
                     id = event.chatId
+                    Log.d("ChatRepository", "Received Chat ID: ${event.chatId}")
                     _state.update { it.copy(chatId = event.chatId) }
+                    saveChat(id)
                 }
 
                 when (event.type) {
@@ -87,6 +100,7 @@ class ChatRepository(
                                 }
                             )
                         }
+                        if (event.text == "end") saveMessage(_state.value.messages.find { it.id == event.messageId }!!)
                     }
 
                     SocketType.EXCEPTION -> {
@@ -98,7 +112,10 @@ class ChatRepository(
                                     val last = s.messages.last()
                                     when {
                                         msg.id == event.messageId -> msg.copy(state = MessageState.FAILED)
-                                        msg == last && last.state != MessageState.SUCCESS  -> msg.copy(state = MessageState.FAILED)
+                                        msg == last && last.state != MessageState.SUCCESS -> msg.copy(
+                                            state = MessageState.FAILED
+                                        )
+
                                         else -> msg
                                     }
                                 }
@@ -124,14 +141,16 @@ class ChatRepository(
         }
     }
 
-    private fun connectWebSocket(chatId: String? = null) {
-        webSocket = okHttpClient.newWebSocket(createRequest(chatId), webSocketListener)
-        _state.update { it.copy(connectionState = ConnectionState.CONNECTING) }
+    fun clear() {
+        scope.cancel()
+        webSocket?.close(1000, null)
     }
 
     fun sendMessage(message: ChatMessage) {
         _state.update { it.copy(isResponding = true, messages = it.messages + message) }
-        if (webSocket == null || state.value.connectionState != ConnectionState.CONNECTED) connectWebSocket()
+        if (webSocket == null || state.value.connectionState != ConnectionState.CONNECTED) connectWebSocket(
+            id
+        )
         webSocket!!.send(Json.encodeToString(message))
     }
 
@@ -139,7 +158,44 @@ class ChatRepository(
         _state.update { it.copy(isResponding = false) }
     }
 
-    private fun createRequest(chatId: String? = null, apiKey: String = "koala"): Request {
+    suspend fun saveChat(
+        id: String,
+        title: String = "Chat: $id",
+        timestamp: Long = System.currentTimeMillis(),
+    ) {
+        Log.d("ChatRepository", "Saving chat chatId=${id}")
+        chatsDao.insert(
+            Chat(
+                id = id,
+                title = title,
+                timestamp = timestamp
+            )
+        )
+    }
+
+    suspend fun saveMessage(message: ChatMessage) {
+        Log.d("ChatRepository", "Saving message id=${message.id}, chatId=${message.chatId}")
+        val chatId = message.chatId ?: return
+        chatMessagesDao.insert(message.toEntity(chatId))
+    }
+
+    suspend fun saveMessages(messages: List<ChatMessage>) {
+        chatMessagesDao.insertAll(
+            messages.map { it.toEntity(chatId = it.chatId!!) }
+        )
+    }
+
+    suspend fun getMessagesForChat(chatId: String): List<ChatMessage> {
+        return chatMessagesDao.getAllForChat(chatId)
+            .map { it.toDomain() }
+    }
+
+    private fun connectWebSocket(chatId: String) {
+        webSocket = okHttpClient.newWebSocket(createRequest(chatId), webSocketListener)
+        _state.update { it.copy(connectionState = ConnectionState.CONNECTING) }
+    }
+
+    private fun createRequest(chatId: String, apiKey: String = "koala"): Request {
         val websocketURL =
             "wss://freyaslittlehelper.loca.lt/odin/chat/${chatId}?x-api-key=${apiKey}"
 

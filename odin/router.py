@@ -6,6 +6,7 @@ from odin.tools.web_search import web_search
 from odin.tools.read_webpage import read_webpage
 from dotenv import load_dotenv
 import os
+import uuid
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
@@ -24,7 +25,7 @@ async def chat_socket(ws: WebSocket, chat_id: str | None = None):
 
     await ws.accept()
     
-    if(chat_id == None): chat_id = create_new_chat()
+    if(chat_id == None or chat_id == "" or chat_id == "null"): chat_id = create_new_chat()
     messages = get_chat_history(chat_id)
     
     try:
@@ -77,7 +78,7 @@ def get_chat_history(chat_id: str):
     """}]
 
 def create_new_chat():
-    return "chat123"
+    return uuid.uuid4().hex
 
 def save_message(chat_id: str, role: str, content: str):
     print(f"[SAVE] {chat_id} | {role} | {content}")

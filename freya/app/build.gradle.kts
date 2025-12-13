@@ -5,6 +5,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     kotlin("plugin.serialization")
+    id("androidx.room")
 }
 
 android {
@@ -39,6 +40,9 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    room {
+        schemaDirectory("$projectDir/schemas")
     }
 }
 
@@ -84,4 +88,10 @@ dependencies {
     // Coil3
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    // Paging3
+
+    implementation(libs.androidx.paging.runtime)
+    implementation(libs.androidx.paging.compose)
+
 }
