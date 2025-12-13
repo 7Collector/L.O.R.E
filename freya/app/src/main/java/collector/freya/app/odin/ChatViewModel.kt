@@ -125,6 +125,6 @@ class ChatViewModel @Inject constructor(
     }
 
     fun stopGeneration() {
-
+        chatRepository.stopGeneration()
     }
 }

@@ -50,8 +50,6 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
 
 
     Box(modifier = Modifier.fillMaxSize()) {
-        ConnectionStatusBadge(Modifier.statusBarsPadding(), uiState.connectionState)
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -67,7 +65,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
                         Spacer(
                             Modifier
                                 .statusBarsPadding()
-                                .height(60.dp)
+                                .height(80.dp)
                         )
                     }
                     items(uiState.messages) { message ->
@@ -80,6 +78,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
             }
             InputBottomBar(viewModel)
         }
+        ConnectionStatusBadge(Modifier.statusBarsPadding(), uiState.connectionState)
     }
 
     if (uiState.isOptionsBottomSheetOpen) {

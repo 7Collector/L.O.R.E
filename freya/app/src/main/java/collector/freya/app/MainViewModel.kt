@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 
 enum class MainScreenState {
@@ -14,7 +15,8 @@ enum class MainScreenState {
 }
 
 data class MainScreenUIState(
-    val mainScreenState: MainScreenState = MainScreenState.ChatScreen
+    val mainScreenState: MainScreenState = MainScreenState.ChatScreen,
+    val showAppBar: Boolean = true
 )
 
 @HiltViewModel
@@ -23,6 +25,10 @@ class MainViewModel @Inject constructor() : ViewModel() {
     val uiState = _uiState.asStateFlow()
     
     fun onScreenSelected(screen: MainScreenState) {
-        _uiState.value = _uiState.value.copy(mainScreenState = screen)
+        _uiState.update { it.copy(mainScreenState = screen) }
+    }
+
+    fun setAppBarVisibility(visibility: Boolean) {
+        _uiState.update { it.copy(showAppBar = visibility) }
     }
 }

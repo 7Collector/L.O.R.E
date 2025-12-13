@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +55,7 @@ fun InputBottomBar(viewModel: ChatViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 8.dp)
+                .navigationBarsPadding()
         ) {
 
             if (uiState.attachedElements.isNotEmpty()) {
@@ -137,6 +140,7 @@ fun InputBottomBar(viewModel: ChatViewModel) {
                     )
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

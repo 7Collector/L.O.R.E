@@ -78,6 +78,7 @@ class ChatRepository(
                     SocketType.UPDATE -> {
                         _state.update { s ->
                             s.copy(
+                                isResponding = event.text != "end",
                                 messages = s.messages.map { msg ->
                                     if (msg.id == event.messageId) {
                                         if (event.text == "end") msg.copy(state = MessageState.SUCCESS)
@@ -97,7 +98,7 @@ class ChatRepository(
                                     val last = s.messages.last()
                                     when {
                                         msg.id == event.messageId -> msg.copy(state = MessageState.FAILED)
-                                        msg == last  -> msg.copy(state = MessageState.FAILED)
+                                        msg == last && last.state != MessageState.SUCCESS  -> msg.copy(state = MessageState.FAILED)
                                         else -> msg
                                     }
                                 }
@@ -132,6 +133,10 @@ class ChatRepository(
         _state.update { it.copy(isResponding = true, messages = it.messages + message) }
         if (webSocket == null || state.value.connectionState != ConnectionState.CONNECTED) connectWebSocket()
         webSocket!!.send(Json.encodeToString(message))
+    }
+
+    fun stopGeneration() {
+        _state.update { it.copy(isResponding = false) }
     }
 
     private fun createRequest(chatId: String? = null, apiKey: String = "koala"): Request {

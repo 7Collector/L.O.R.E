@@ -1,5 +1,7 @@
 package collector.freya.app
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +29,7 @@ import collector.freya.app.settings.SettingsScreen
 import collector.freya.app.ui.theme.FreyaTheme
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 
@@ -50,23 +53,27 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface),
                 snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-                Box(Modifier
-                    .fillMaxSize()
-                    .conditional(false, { Modifier.padding(padding) })) {
-                    AppTopBar(
-                        Modifier.align(Alignment.TopCenter),
-                        viewModel,
-                        uiState.mainScreenState
-                    ) {
-                        scope.launch {
-                            drawerState.open()
-                        }
-                    }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .conditional(false, { Modifier.padding(padding) })
+                ) {
                     when (uiState.mainScreenState) {
                         MainScreenState.ChatScreen -> ChatScreen()
                         MainScreenState.DriveScreen -> DriveScreen()
-                        MainScreenState.PhotosScreen -> PhotosScreen()
+                        MainScreenState.PhotosScreen -> PhotosScreen(setAppBarVisibility = viewModel::setAppBarVisibility)
                         MainScreenState.SettingsScreen -> SettingsScreen()
+                    }
+                    if (uiState.showAppBar) {
+                        AppTopBar(
+                            Modifier.align(Alignment.TopCenter),
+                            viewModel,
+                            uiState.mainScreenState
+                        ) {
+                            scope.launch {
+                                drawerState.open()
+                            }
+                        }
                     }
                 }
             }
