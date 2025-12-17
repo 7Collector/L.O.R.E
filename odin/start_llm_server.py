@@ -5,6 +5,7 @@ from urllib.request import urlopen
 # Absolute Paths
 LLAMA_SERVER_EXE = r"L:\odin\llama.cpp\build\bin\Release\llama-server.exe"
 MODEL_GGUF = r"L:\odin\llama.cpp\downloaded_models\gemma-3-12b-it-Q4_K_M.gguf"
+SYSTEM_PROMPT = r"E:\L.O.R.E\odin\templates\system_prompt.xml"
 
 # Arguments
 CTX_SIZE      = "8192"
@@ -33,6 +34,8 @@ def start_llama_server():
         "--threads", THREADS,
         "--port", PORT,
         "--flash-attn", FLASH_ATTN,
+        "--no-warmup",
+        # "--system-prompt-file", SYSTEM_PROMPT,
     ]
 
     print("\nStarting llama-server")

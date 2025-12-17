@@ -1,8 +1,12 @@
 package collector.freya.app.odin
 
+import android.util.Log
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -11,12 +15,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import collector.freya.app.odin.components.ChatMessageItem
+import collector.freya.app.odin.components.ConnectionStatusBadge
 import collector.freya.app.odin.components.EmptyChatScreen
 import collector.freya.app.odin.components.InputBottomBar
 import collector.freya.app.odin.components.MoreOptionsBottomSheet
@@ -24,7 +32,13 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
+fun ChatScreen(
+    chatId: String,
+    viewModel: ChatViewModel = hiltViewModel<ChatViewModel, ChatViewModelFactory>(
+        key = chatId,
+        creationCallback = { factory -> factory.create(chatId) }
+    ),
+) {
 
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
@@ -43,22 +57,36 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
     }
 
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (uiState.messages.isEmpty()) {
-            Spacer(Modifier.weight(1.0f))
-            EmptyChatScreen(onPromptSelected = viewModel::updateInput)
-            Spacer(Modifier.weight(1.0f))
-        } else {
-            LazyColumn(modifier = Modifier.weight(1f), state = listState) {
-                items(uiState.messages) { message ->
-                    ChatMessageItem(message)
-                }
-                item {
-                    Spacer(Modifier.weight(1.0f))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .align(Alignment.TopEnd)
+        ) {
+            if (uiState.messages.isEmpty()) {
+                Spacer(Modifier.weight(1.0f))
+                EmptyChatScreen(onPromptSelected = viewModel::updateInput)
+                Spacer(Modifier.weight(1.0f))
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f), state = listState) {
+                    item {
+                        Spacer(
+                            Modifier
+                                .statusBarsPadding()
+                                .height(80.dp)
+                        )
+                    }
+                    items(uiState.messages) { message ->
+                        ChatMessageItem(message)
+                    }
+                    item {
+                        Spacer(Modifier.weight(1.0f))
+                    }
                 }
             }
+            InputBottomBar(viewModel)
         }
-        InputBottomBar(viewModel)
+        ConnectionStatusBadge(Modifier.statusBarsPadding(), uiState.connectionState)
     }
 
     if (uiState.isOptionsBottomSheetOpen) {

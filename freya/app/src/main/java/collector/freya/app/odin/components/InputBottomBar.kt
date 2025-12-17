@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +27,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Square
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -51,6 +55,7 @@ fun InputBottomBar(viewModel: ChatViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 8.dp)
+                .navigationBarsPadding()
         ) {
 
             if (uiState.attachedElements.isNotEmpty()) {
@@ -117,7 +122,7 @@ fun InputBottomBar(viewModel: ChatViewModel) {
                 }
 
                 val showSendButton =
-                    uiState.inputText.isNotEmpty() || uiState.attachedElements.isNotEmpty()
+                    uiState.inputText.isNotEmpty() || uiState.attachedElements.isNotEmpty() || uiState.isResponding
 
                 AnimatedVisibility(
                     visible = showSendButton,
@@ -126,15 +131,16 @@ fun InputBottomBar(viewModel: ChatViewModel) {
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     ButtonWithIcon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send Message",
+                        imageVector = if (uiState.isResponding) Icons.Default.Square else Icons.AutoMirrored.Filled.Send,
+                        contentDescription = if (uiState.isResponding) "Stop" else "Send Message",
                         buttonSize = 48.dp,
                         backgroundColor = MaterialTheme.colorScheme.primary,
                         tint = MaterialTheme.colorScheme.onPrimary,
-                        onClick = { viewModel.sendMessage() }
+                        onClick = { if (uiState.isResponding) viewModel.stopGeneration() else viewModel.sendMessage() }
                     )
                 }
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

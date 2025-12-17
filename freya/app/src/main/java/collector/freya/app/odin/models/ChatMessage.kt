@@ -1,5 +1,6 @@
 package collector.freya.app.odin.models
 
+import collector.freya.app.database.chats.models.ChatMessageEntity
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -27,5 +28,16 @@ data class ChatMessage(
     val updates: List<String> = emptyList(),
     val prompt: String,
     val reply: String = "",
-    val model: AiModel
+    val model: AiModel,
 )
+
+fun ChatMessage.toEntity(chatId: String): ChatMessageEntity =
+    ChatMessageEntity(
+        id = id,
+        chatId = chatId,
+        timestamp = timestamp,
+        prompt = prompt,
+        reply = reply,
+        state = state,
+        model = model
+    )

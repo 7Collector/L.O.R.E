@@ -1,5 +1,7 @@
 package collector.freya.app
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,10 +16,13 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import collector.freya.app.helpers.conditional
 import collector.freya.app.mimir.DriveScreen
 import collector.freya.app.odin.ChatScreen
 import collector.freya.app.orion.PhotosScreen
@@ -25,6 +30,7 @@ import collector.freya.app.settings.SettingsScreen
 import collector.freya.app.ui.theme.FreyaTheme
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.Q)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 
@@ -37,26 +43,43 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     FreyaTheme {
         ModalNavigationDrawer(
             drawerState = drawerState, drawerContent = {
-                MainDrawer(viewModel, uiState.mainScreenState) {
+                MainDrawer(
+                    viewModel, uiState.mainScreenState,
+                    viewModel::setCurrentChatId,
+                ) {
                     scope.launch {
                         drawerState.close()
                     }
                 }
             }) {
             Scaffold(
-                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                topBar = { AppTopBar(viewModel, uiState.mainScreenState) {
-                    scope.launch {
-                        drawerState.open()
-                    }
-                } }) { padding ->
-                Box(Modifier.padding(padding)) {
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface),
+                snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .conditional(false, { Modifier.padding(padding) })
+                ) {
                     when (uiState.mainScreenState) {
-                        MainScreenState.ChatScreen -> ChatScreen()
+                        MainScreenState.ChatScreen -> {
+                            key(uiState.currentChatId) {
+                                ChatScreen(uiState.currentChatId)
+                            }
+                        }
                         MainScreenState.DriveScreen -> DriveScreen()
-                        MainScreenState.PhotosScreen -> PhotosScreen()
+                        MainScreenState.PhotosScreen -> PhotosScreen(setAppBarVisibility = viewModel::setAppBarVisibility)
                         MainScreenState.SettingsScreen -> SettingsScreen()
+                    }
+                    if (uiState.showAppBar) {
+                        AppTopBar(
+                            Modifier.align(Alignment.TopCenter), viewModel, uiState.mainScreenState
+                        ) {
+                            scope.launch {
+                                drawerState.open()
+                            }
+                        }
                     }
                 }
             }

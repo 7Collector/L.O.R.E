@@ -6,4 +6,5 @@ plugins {
     id("com.google.devtools.ksp") version "2.3.3" apply false
     id("com.google.dagger.hilt.android") version "2.57.2" apply false
     kotlin("plugin.serialization") version "2.2.21"
+    id("androidx.room") version "2.8.4" apply false
 }

@@ -31,7 +31,7 @@ import collector.freya.app.components.ButtonWithIcon
 import collector.freya.app.helpers.getTitleByScreen
 
 @Composable
-fun AppTopBar(viewModel: MainViewModel, screenState: MainScreenState, openDrawer: () -> Unit) {
+fun AppTopBar(modifier: Modifier = Modifier, viewModel: MainViewModel, screenState: MainScreenState, openDrawer: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
