@@ -16,6 +16,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -62,7 +63,11 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                         .conditional(false, { Modifier.padding(padding) })
                 ) {
                     when (uiState.mainScreenState) {
-                        MainScreenState.ChatScreen -> ChatScreen(uiState.currentChatId)
+                        MainScreenState.ChatScreen -> {
+                            key(uiState.currentChatId) {
+                                ChatScreen(uiState.currentChatId)
+                            }
+                        }
                         MainScreenState.DriveScreen -> DriveScreen()
                         MainScreenState.PhotosScreen -> PhotosScreen(setAppBarVisibility = viewModel::setAppBarVisibility)
                         MainScreenState.SettingsScreen -> SettingsScreen()

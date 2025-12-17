@@ -34,7 +34,7 @@ async def add_process_time_header(request: Request, call_next):
 
 
 # Start the Llama Server
-server = start_llama_server()
+# server = start_llama_server()
 
 # Start Local tunnel
 tunnel = start_local_tunnel()

@@ -45,16 +45,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import collector.freya.app.components.ButtonWithIcon
-import collector.freya.app.orion.models.MediaItem
+import collector.freya.app.database.media.models.MediaEntity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun PhotoViewer(
-    photo: MediaItem?,
+    photo: MediaEntity?,
     onDismiss: () -> Unit,
     setAppBarVisibility: (Boolean) -> Unit,
 ) {
@@ -88,7 +89,7 @@ fun PhotoViewer(
                 var offset by remember { mutableStateOf(Offset.Zero) }
 
                 AsyncImage(
-                    model = item.uri,
+                    model = item.uri.toUri(),
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -212,7 +213,7 @@ fun ViewerActionButton(
 
 @Composable
 fun PhotoInfoDialog(
-    photo: MediaItem,
+    photo: MediaEntity,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -238,7 +239,7 @@ fun PhotoInfoDialog(
                 InfoRow(label = "Date", value = formattedDate)
                 InfoRow(label = "Name", value = photo.name)
                 InfoRow(label = "Size", value = formattedSize)
-                InfoRow(label = "Path", value = photo.uri.path ?: "Unknown")
+                InfoRow(label = "Path", value = photo.uri.toUri().path ?: "Unknown")
             }
         }
     )

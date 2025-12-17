@@ -1,6 +1,6 @@
 from pathlib import Path
 import sqlite3
-from ..constants import *
+from constants import *
 
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
