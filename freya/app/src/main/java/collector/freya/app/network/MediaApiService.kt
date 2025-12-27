@@ -12,7 +12,8 @@ interface MediaApiService {
     @POST("orion/upload")
     suspend fun uploadMediaFile(
         @Part file: MultipartBody.Part,
-        @Query("album_id") albumId: Int? = null
+        @Query("album_id") albumId: Int? = null,
+        @Query("file_id") fileId: String
     ): Response<UploadResult>
 
     @GET("orion/file/{media_id}")

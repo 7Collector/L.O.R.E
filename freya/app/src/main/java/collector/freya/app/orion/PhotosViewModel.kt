@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -30,7 +31,7 @@ data class PhotosUIState(
 @RequiresApi(Build.VERSION_CODES.Q)
 @HiltViewModel
 class PhotosViewModel @Inject constructor(
-    mediaRepository: MediaRepository,
+    val mediaRepository: MediaRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PhotosUIState())
@@ -63,6 +64,17 @@ class PhotosViewModel @Inject constructor(
 
     fun closePhoto() {
         _uiState.update { it.copy(openedPhoto = null) }
+    }
+
+    fun setFavorite() {
+        val openedPhoto = uiState.value.openedPhoto
+        if (openedPhoto == null) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(openedPhoto = openedPhoto.copy(isFavorite = !openedPhoto.isFavorite))
+            }
+            mediaRepository.setFavorite(openedPhoto.id, openedPhoto.isFavorite)
+        }
     }
 
     private fun sameDay(a: Long, b: Long): Boolean {

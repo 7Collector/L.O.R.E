@@ -1,7 +1,12 @@
 package collector.freya.app.orion.components
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.text.format.Formatter
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +25,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Share
@@ -44,8 +50,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import coil3.compose.AsyncImage
 import collector.freya.app.components.ButtonWithIcon
 import collector.freya.app.database.media.models.MediaEntity
@@ -57,10 +66,13 @@ import java.time.format.DateTimeFormatter
 fun PhotoViewer(
     photo: MediaEntity?,
     onDismiss: () -> Unit,
+    onFavorite: () -> Unit,
     setAppBarVisibility: (Boolean) -> Unit,
 ) {
-    var controlsVisible by remember { mutableStateOf(true) }
+    var isVisible by remember { mutableStateOf(true) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    val view = LocalView.current
+    val window = (view.context as? ComponentActivity)?.window
 
     BackHandler(enabled = photo != null) {
         onDismiss()
@@ -68,15 +80,11 @@ fun PhotoViewer(
 
     if (showInfoDialog && photo != null) {
         PhotoInfoDialog(
-            photo = photo,
-            onDismiss = { showInfoDialog = false }
-        )
+            photo = photo, onDismiss = { showInfoDialog = false })
     }
 
     AnimatedVisibility(
-        visible = photo != null,
-        enter = fadeIn(),
-        exit = fadeOut()
+        visible = photo != null, enter = fadeIn(), exit = fadeOut()
     ) {
         photo?.let { item ->
             Box(
@@ -103,10 +111,15 @@ fun PhotoViewer(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = {
-                                    controlsVisible = !controlsVisible
-                                    setAppBarVisibility(controlsVisible)
-                                }
-                            )
+                                    val windowsInsetsController =
+                                        WindowCompat.getInsetsController(window!!, window.decorView)
+                                    if (isVisible) windowsInsetsController.hide(
+                                        WindowInsetsCompat.Type.systemBars()
+                                    )
+                                    else windowsInsetsController.show(WindowInsetsCompat.Type.systemBars())
+                                    isVisible = !isVisible
+                                    setAppBarVisibility(isVisible)
+                                })
                         }
                         .pointerInput(Unit) {
                             detectTransformGestures { _, pan, zoom, _ ->
@@ -118,11 +131,10 @@ fun PhotoViewer(
                                     offset = Offset.Zero
                                 }
                             }
-                        }
-                )
+                        })
 
                 AnimatedVisibility(
-                    visible = controlsVisible,
+                    visible = isVisible,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier.fillMaxSize()
@@ -154,8 +166,7 @@ fun PhotoViewer(
                                 .background(
                                     Brush.verticalGradient(
                                         colors = listOf(
-                                            Color.Transparent,
-                                            Color.Black.copy(alpha = 0.8f)
+                                            Color.Transparent, Color.Black.copy(alpha = 0.8f)
                                         )
                                     )
                                 )
@@ -167,26 +178,24 @@ fun PhotoViewer(
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val activity = LocalActivity.current
                                 ViewerActionButton(
                                     icon = Icons.Default.Share,
                                     label = "Share",
-                                    onClick = {  }
-                                )
+                                    onClick = { share(activity, item.uri.toUri()) })
                                 ViewerActionButton(
-                                    icon = Icons.Default.FavoriteBorder,
+                                    icon = if (item.isFavorite) Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                                     label = "Favorite",
-                                    onClick = {  }
+                                    onClick = onFavorite
                                 )
                                 ViewerActionButton(
-                                    icon = Icons.Default.Delete,
-                                    label = "Delete",
-                                    onClick = {  }
-                                )
+                                    icon = Icons.Default.Delete, label = "Delete", onClick = {
+
+                                    })
                                 ViewerActionButton(
                                     icon = Icons.Default.Info,
                                     label = "Info",
-                                    onClick = { showInfoDialog = true }
-                                )
+                                    onClick = { showInfoDialog = true })
                             }
                         }
                     }
@@ -204,9 +213,7 @@ fun ViewerActionButton(
 ) {
     IconButton(onClick = onClick) {
         Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = Color.White
+            imageVector = icon, contentDescription = label, tint = Color.White
         )
     }
 }
@@ -224,25 +231,20 @@ fun PhotoInfoDialog(
 
     val formattedSize = Formatter.formatFileSize(context, photo.size.toLong())
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        },
-        title = {
-            Text(text = "Details")
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                InfoRow(label = "Date", value = formattedDate)
-                InfoRow(label = "Name", value = photo.name)
-                InfoRow(label = "Size", value = formattedSize)
-                InfoRow(label = "Path", value = photo.uri.toUri().path ?: "Unknown")
-            }
+    AlertDialog(onDismissRequest = onDismiss, confirmButton = {
+        TextButton(onClick = onDismiss) {
+            Text("Close")
         }
-    )
+    }, title = {
+        Text(text = "Details")
+    }, text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoRow(label = "Date", value = formattedDate)
+            InfoRow(label = "Name", value = photo.name)
+            InfoRow(label = "Size", value = formattedSize)
+            InfoRow(label = "Path", value = photo.uri.toUri().path ?: "Unknown")
+        }
+    })
 }
 
 @Composable
@@ -254,8 +256,16 @@ fun InfoRow(label: String, value: String) {
             color = MaterialTheme.colorScheme.primary
         )
         Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium
+            text = value, style = MaterialTheme.typography.bodyMedium
         )
     }
+}
+
+fun share(activity: Activity?, uri: Uri) {
+    val shareIntent: Intent = Intent().apply {
+        action = Intent.ACTION_SEND
+        putExtra(Intent.EXTRA_STREAM, uri)
+        type = "image/jpeg"
+    }
+    activity?.startActivity(Intent.createChooser(shareIntent, null))
 }

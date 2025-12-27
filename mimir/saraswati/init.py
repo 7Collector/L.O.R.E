@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS files (
     size INTEGER DEFAULT 0,
     modified REAL,
     created REAL,
+    favorite BOOLEAN DEFAULT 0,
     UNIQUE(path)
 );
 

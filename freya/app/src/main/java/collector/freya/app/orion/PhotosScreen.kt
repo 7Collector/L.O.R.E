@@ -1,7 +1,8 @@
 package collector.freya.app.orion
 
+import android.content.ContentResolver
 import android.os.Build
-import android.util.Log
+import android.util.Size
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,12 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.paging.LOG_TAG
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.bitmapConfig
-import coil3.request.crossfade
 import collector.freya.app.database.media.models.MediaEntity
 import collector.freya.app.orion.components.PhotoViewer
 import java.time.Instant
@@ -54,7 +50,7 @@ fun PhotosScreen(
     val uiState by viewModel.uiState.collectAsState()
     val listState = rememberLazyStaggeredGridState()
     val media = viewModel.media.collectAsLazyPagingItems()
-    Log.d("PHOTOS", "${media.itemCount} ${media.itemSnapshotList.size}")
+    val localContentResolver = LocalContext.current.contentResolver
 
     Box {
         LazyVerticalStaggeredGrid(
@@ -65,7 +61,9 @@ fun PhotosScreen(
             state = listState
         ) {
             item(span = StaggeredGridItemSpan.FullLine) {
-                Spacer(Modifier.statusBarsPadding().height(80.dp))
+                Spacer(Modifier
+                    .statusBarsPadding()
+                    .height(80.dp))
             }
 
             items(
@@ -97,11 +95,18 @@ fun PhotosScreen(
                     is GalleryItem.Header -> {
                         DateHeader(item.timestamp)
                     }
+
                     is GalleryItem.Photo -> {
-                        PhotoItem(item.media, viewModel)
+                        PhotoItem(item.media, localContentResolver, viewModel)
                     }
+
                     null -> {
-                        Box(Modifier.fillMaxWidth().aspectRatio(1f).background(MaterialTheme.colorScheme.surfaceVariant))
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        )
                     }
                 }
             }
@@ -110,6 +115,8 @@ fun PhotosScreen(
         PhotoViewer(photo = uiState.openedPhoto, onDismiss = {
             viewModel.closePhoto()
             setAppBarVisibility(true)
+        }, onFavorite = {
+            viewModel.setFavorite()
         }, setAppBarVisibility = setAppBarVisibility)
     }
 }
@@ -137,14 +144,13 @@ private fun DateHeader(timestamp: Long) {
 
 @RequiresApi(Build.VERSION_CODES.Q)
 @Composable
-private fun PhotoItem(photo: MediaEntity, viewModel: PhotosViewModel) {
+private fun PhotoItem(
+    photo: MediaEntity,
+    contentResolver: ContentResolver?,
+    viewModel: PhotosViewModel,
+) {
     AsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(photo.uri)
-            .size(300, 300)
-            .bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
-            .crossfade(false)
-            .build(),
+        model = contentResolver?.loadThumbnail(photo.uri.toUri(), Size(300, 300), null) ?: photo.uri,
         contentScale = ContentScale.Crop,
         contentDescription = null,
         modifier = Modifier

@@ -33,14 +33,13 @@ def generate_thumb(src: Path, dest: Path):
 async def upload_media(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    file_id: str = Query(...),
     album_id: int | None = Query(None),
 ):
     content = await file.read()
     
-    ext = Path(file.filename).suffix
-    safe_filename = f"{uuid4().hex}{ext}"
-    save_path = FILES_DIR / safe_filename
-    thumb_path = THUMB_DIR / (safe_filename + ".jpg")
+    save_path = FILES_DIR / file_id
+    thumb_path = THUMB_DIR / (file_id + ".jpg")
 
     save_path.write_bytes(content)
 

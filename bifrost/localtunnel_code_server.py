@@ -3,10 +3,10 @@ import os
 
 LT_PATH = r"C:\Users\raksh\AppData\Roaming\npm\node_modules\localtunnel\bin\lt"
 
-PORT = "4000"
-SUBDOMAIN = "freyaslittlehelper"
+PORT = "8080"
+SUBDOMAIN = "rakshitscodeserver"
 
-def start_local_tunnel():
+def start_code_server_tunnel():
     cmd = [
         "node",
         LT_PATH,
@@ -25,6 +25,5 @@ def start_local_tunnel():
 
     return process
 
-
 if(__name__ == "__main__"):
-    start_local_tunnel()
+    start_code_server_tunnel()

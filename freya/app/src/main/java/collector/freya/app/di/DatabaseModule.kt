@@ -51,4 +51,7 @@ object DatabaseModule {
 
     @Provides
     fun provideMediaMessagesDao(db: AppDatabase) = db.mediaDao()
+
+    @Provides
+    fun provideDriveDao(db: AppDatabase) = db.driveDao()
 }

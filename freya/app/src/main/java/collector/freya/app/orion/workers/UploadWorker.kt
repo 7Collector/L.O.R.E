@@ -9,15 +9,12 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.OutOfQuotaPolicy
-import androidx.work.WorkRequest
 import androidx.work.WorkerParameters
 import collector.freya.app.R
 import collector.freya.app.database.media.MediaDao
 import collector.freya.app.orion.MediaRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.lang.Exception
 
 @HiltWorker
 class UploadWorker @AssistedInject constructor(
@@ -36,17 +33,18 @@ class UploadWorker @AssistedInject constructor(
         showNotification(0, 0, true)
 
         val totalCount = mediaDao.getUnuploadedCount()
-        if (totalCount == 0) {
-            cancelNotification()
-            return Result.success()
-        }
+
+        cancelNotification()
+
+        if (totalCount == 0) return Result.success()
 
         var currentProgress = 0
         val unUploadedItems = mediaDao.getAllUnuploaded()
 
         unUploadedItems.forEach {
             try {
-                val success = mediaRepository.uploadFile(it.id, it.uri.toUri())
+                val success =
+                    mediaRepository.uploadFile(it.id, fileUri = it.uri.toUri(), name = it.name)
                 if (success) {
                     currentProgress++
                     showNotification(totalCount, currentProgress, false)
@@ -73,27 +71,22 @@ class UploadWorker @AssistedInject constructor(
             "Uploaded $progress of $max items"
         }
 
-        val notification = NotificationCompat.Builder(applicationContext, channelId)
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setProgress(max, progress, indeterminate)
-            .build()
+        val notification =
+            NotificationCompat.Builder(applicationContext, channelId).setContentTitle(title)
+                .setContentText(content).setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setOngoing(true).setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setProgress(max, progress, indeterminate).build()
 
         try {
-            NotificationManagerCompat.from(applicationContext)
-                .notify(notificationId, notification)
+            NotificationManagerCompat.from(applicationContext).notify(notificationId, notification)
         } catch (e: SecurityException) {
             Log.e("UploadWorker", "Missing notification permission", e)
         }
     }
 
     private fun cancelNotification() {
-        NotificationManagerCompat.from(applicationContext)
-            .cancel(notificationId)
+        NotificationManagerCompat.from(applicationContext).cancel(notificationId)
     }
 
     companion object {
