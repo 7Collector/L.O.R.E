@@ -6,6 +6,7 @@ from mimir.router import router as mimir_router
 #from bifrost.scheduler import scheduler
 from odin.start_llm_server import start_llama_server
 from bifrost.localtunnel import start_local_tunnel
+from bifrost.localtunnel_code_server import start_code_server_tunnel
 from dotenv import load_dotenv
 import os
 
@@ -38,6 +39,7 @@ async def add_process_time_header(request: Request, call_next):
 
 # Start Local tunnel
 tunnel = start_local_tunnel()
+code_server_tunnel = start_code_server_tunnel()
 
 app.include_router(orion_router, prefix="/orion")
 app.include_router(odin_router, prefix="/odin")

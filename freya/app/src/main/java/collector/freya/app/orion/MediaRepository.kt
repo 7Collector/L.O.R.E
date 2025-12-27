@@ -128,6 +128,7 @@ class MediaRepository @Inject constructor(
 
     suspend fun uploadFile(
         id: String,
+        name: String,
         fileUri: Uri,
         albumId: Int? = null,
     ): Boolean {
@@ -139,13 +140,13 @@ class MediaRepository @Inject constructor(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, // Handle Videos too here
             id.toLong()
         )
-
+        val fileId = id + name
         val requestBody = UriRequestBody(applicationContext.contentResolver, contentUri)
 
-        val filePart = MultipartBody.Part.createFormData("file", "upload_$id.jpg", requestBody)
+        val filePart = MultipartBody.Part.createFormData("file", name, requestBody)
 
         try {
-            val response = apiService.uploadMediaFile(filePart, albumId)
+            val response = apiService.uploadMediaFile(filePart, albumId, fileId)
             if (response.isSuccessful) setUploaded(id)
             return response.isSuccessful
         } catch (e: Exception) {

@@ -3,6 +3,7 @@ package collector.freya.app.odin
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import collector.freya.app.database.PreferencesRepository
 import collector.freya.app.database.chats.ChatMessagesDao
 import collector.freya.app.database.chats.ChatsDao
 import collector.freya.app.odin.models.AiModel
@@ -48,9 +49,10 @@ interface ChatViewModelFactory {
 class ChatViewModel @AssistedInject constructor(
     chatsDao: ChatsDao,
     chatMessagesDao: ChatMessagesDao,
+    preferencesRepository: PreferencesRepository,
     @Assisted val id: String
 ) : ViewModel() {
-    private val chatRepository = ChatRepository(id, chatsDao, chatMessagesDao)
+    private val chatRepository = ChatRepository(id, chatsDao, chatMessagesDao, preferencesRepository)
 
     private val _uiState = MutableStateFlow(ChatScreenUIState())
     val uiState = _uiState.asStateFlow()

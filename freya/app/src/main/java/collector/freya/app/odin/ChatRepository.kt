@@ -1,6 +1,7 @@
 package collector.freya.app.odin
 
 import android.util.Log
+import collector.freya.app.database.PreferencesRepository
 import collector.freya.app.database.chats.ChatMessagesDao
 import collector.freya.app.database.chats.ChatsDao
 import collector.freya.app.database.chats.models.Chat
@@ -19,8 +20,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -44,6 +47,7 @@ class ChatRepository(
     private var id: String,
     private val chatsDao: ChatsDao,
     private val chatMessagesDao: ChatMessagesDao,
+    private val preferencesRepository: PreferencesRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val okHttpClient = OkHttpClient()
@@ -195,9 +199,16 @@ class ChatRepository(
         _state.update { it.copy(connectionState = ConnectionState.CONNECTING) }
     }
 
-    private fun createRequest(chatId: String, apiKey: String = "koala"): Request {
+    private fun createRequest(chatId: String): Request {
+        val apiKey = runBlocking {
+            preferencesRepository.getApiKey().first()
+        }
+        val baseUrl = runBlocking {
+            preferencesRepository.getServerBaseUrl().first()
+        }
+        val scheme = if (baseUrl.first().isDigit()) "ws" else "wss"
         val websocketURL =
-            "wss://freyaslittlehelper.loca.lt/odin/chat/${chatId}?x-api-key=${apiKey}"
+            "$scheme://${baseUrl}/odin/chat/${chatId}?x-api-key=${apiKey}"
 
         return Request.Builder().url(websocketURL).build()
     }

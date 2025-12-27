@@ -1,21 +1,29 @@
 package collector.freya.app.odin.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import collector.freya.app.odin.models.ChatMessage
 import collector.freya.app.odin.models.MessageState
 
@@ -26,11 +34,8 @@ fun ChatMessageItem(message: ChatMessage) {
             .fillMaxWidth()
             .padding(vertical = 12.dp, horizontal = 16.dp)
     ) {
-        // 1. User Message (Right Aligned Bubble)
         UserMessageBubble(prompt = message.prompt)
 
-        // 2. AI Response (Left Aligned Icon + Text)
-        // Show AI part if there is a reply, updates, or it's currently processing/failed
         if (message.reply.isNotEmpty() || message.updates.isNotEmpty() || message.state != MessageState.SUCCESS) {
             Spacer(modifier = Modifier.height(16.dp))
             AiResponseBlock(message)
@@ -65,14 +70,13 @@ private fun AiResponseBlock(message: ChatMessage) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        // AI Avatar
         Surface(
             modifier = Modifier.size(24.dp),
             shape = CircleShape,
             color = MaterialTheme.colorScheme.primary
         ) {
             Icon(
-                imageVector = Icons.Default.AutoAwesome, // Or your app logo
+                imageVector = Icons.Default.AutoAwesome,
                 contentDescription = "AI",
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.padding(4.dp)
@@ -82,7 +86,6 @@ private fun AiResponseBlock(message: ChatMessage) {
         Spacer(modifier = Modifier.width(12.dp))
 
         Column {
-            // Model Name (Optional Caption)
             Text(
                 text = message.model.name,
                 style = MaterialTheme.typography.labelSmall,
@@ -91,7 +94,6 @@ private fun AiResponseBlock(message: ChatMessage) {
                 modifier = Modifier.padding(bottom = 4.dp)
             )
 
-            // Status Updates (Searching, Processing...)
             if (message.updates.isNotEmpty() && message.reply.isEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
@@ -108,16 +110,13 @@ private fun AiResponseBlock(message: ChatMessage) {
                 }
             }
 
-            // Main Content
             if (message.reply.isNotEmpty()) {
                 AIMessageRenderer(
                     markdown = message.reply,
-                    // Pass your specific styling here so it matches the rest of your app
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             } else if (message.state == MessageState.PROCESSING && message.updates.isEmpty()) {
-                // Blink cursor or simple text for initial loading
                 Text(
                     text = "Thinking...",
                     style = MaterialTheme.typography.bodyMedium,
@@ -125,19 +124,13 @@ private fun AiResponseBlock(message: ChatMessage) {
                 )
             }
 
-            // Attachments
             if (message.attachments.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 message.attachments.forEach { attachment ->
-                    AssistChip(
-                        onClick = { },
-                        label = { Text("📎 $attachment") },
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                    AttachmentView(attachment) { }
                 }
             }
 
-            // Error State
             if (message.state == MessageState.FAILED || message.state == MessageState.NETWORK_ERROR) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
