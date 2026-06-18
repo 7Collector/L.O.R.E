@@ -1,0 +1,136 @@
+name: Android Release Build
+
+on:
+  push:
+    tags:
+      - "v*.*.*"           # triggers on version tags like v1.0.0, v2.1.3
+  workflow_dispatch:       # allows manual trigger from GitHub Actions UI
+    inputs:
+      version_name:
+        description: "Version name for the release (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+jobs:
+  build-release:
+    name: Build & Sign Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x freya/gradlew
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # ---------------------------------------------------------------
+      # SIGNING: Decodes the keystore from a GitHub Secret.
+      # Setup instructions:
+      #   1. Generate a keystore:
+      #      keytool -genkey -v -keystore freya.keystore -alias freya -keyalg RSA -keysize 2048 -validity 10000
+      #   2. Base64-encode the keystore:
+      #      base64 -i freya.keystore | tr -d '\n'
+      #   3. Add the following GitHub Secrets in Settings > Secrets > Actions:
+      #      KEYSTORE_BASE64      → base64-encoded keystore content
+      #      KEYSTORE_PASSWORD    → keystore password
+      #      KEY_ALIAS            → key alias (e.g. freya)
+      #      KEY_PASSWORD         → key password
+      # ---------------------------------------------------------------
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > freya/app/freya.keystore
+
+      - name: Build Release APK
+        working-directory: freya
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3072m -Dorg.gradle.daemon=false"
+          SIGNING_STORE_PATH: freya.keystore
+          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Sign APK (zipalign + apksigner)
+        run: |
+          # Find build-tools
+          BUILD_TOOLS=$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)
+          BT_PATH="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
+          UNSIGNED_APK="freya/app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED_APK="freya/app/build/outputs/apk/release/freya-release.apk"
+
+          # Zipalign
+          $BT_PATH/zipalign -v -p 4 "$UNSIGNED_APK" "$SIGNED_APK"
+
+          # Sign with apksigner
+          $BT_PATH/apksigner sign \
+            --ks freya/app/freya.keystore \
+            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --out "$SIGNED_APK" \
+            "$SIGNED_APK"
+
+          # Verify
+          $BT_PATH/apksigner verify "$SIGNED_APK"
+          echo "✅ APK signed and verified!"
+
+      - name: Get version name
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.version_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Signed Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freya-release-v${{ steps.version.outputs.name }}
+          path: freya/app/build/outputs/apk/release/freya-release.apk
+          retention-days: 90
+          if-no-files-found: error
+
+      # ---------------------------------------------------------------
+      # OPTIONAL: Create a GitHub Release with the APK attached
+      # ---------------------------------------------------------------
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Freya ${{ steps.version.outputs.name }}"
+          body: |
+            ## 📱 Freya Android App — v${{ steps.version.outputs.name }}
+
+            ### Download
+            Download the signed APK from the assets below and install it on your Android device.
+
+            ### Requirements
+            - Android 8.0+ (API 26)
+            - L.O.R.E backend running at your configured server URL
+
+            ### Changelog
+            See commit history for changes in this release.
+          files: freya/app/build/outputs/apk/release/freya-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
