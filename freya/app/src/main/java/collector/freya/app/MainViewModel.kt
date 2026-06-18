@@ -14,7 +14,8 @@ enum class MainScreenState {
     ChatScreen,
     DriveScreen,
     PhotosScreen,
-    SettingsScreen
+    SettingsScreen,
+    ManageSharesScreen
 }
 
 data class MainScreenUIState(

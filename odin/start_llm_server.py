@@ -1,6 +1,11 @@
+import os
 import subprocess
 import time
 from urllib.request import urlopen
+from dotenv import load_dotenv
+
+load_dotenv()
+LOCAL_LLM = os.getenv("LOCAL_LLM", "False").lower() in ("true", "1", "yes")
 
 # Absolute Paths
 LLAMA_SERVER_EXE = r"L:\odin\llama.cpp\build\bin\Release\llama-server.exe"
@@ -18,11 +23,15 @@ CHAT_TEMPLATE = "llama3"
 server_url = f"http://127.0.0.1:{PORT}/health"
 
 def start_llama_server():
+    if not LOCAL_LLM:
+        print("local_llm is false. Skipping starting local llama-server.")
+        return None
 
     try:
         with urlopen(server_url) as response:
             if response.status == 200:
                 print("\nServer is already running!")
+                return None
     except Exception:
             print(".", end="", flush=True)
 

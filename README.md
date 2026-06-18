@@ -94,9 +94,14 @@ Stores and retrieves embeddings for semantic search.
 
 ---
 
-## Setup
+## Setup & Development Guide
 
-*(Placeholder — fill once installation steps are finalized)*
+For a detailed breakdown of the internal architecture, database schemas, component sequence diagrams, platform dependencies, and current development stubs, refer to the [Gemini.md](file:///root/Dev/L.O.R.E/Gemini.md) developer onboarding guide.
+
+### Basic Service Startup
+1. **Local LLM Server**: Start the local model server by executing [odin/start_llm_server.py](file:///root/Dev/L.O.R.E/odin/start_llm_server.py) (which starts the `llama-server` process with `gemma-3-12b`, if `LOCAL_LLM` is enabled).
+2. **API Router & Gateway**: Define an `API_KEY` and configuration inside a local `.env` file, then boot the gateway by running `uvicorn bifrost.main:app --port 2345`.
+3. **Mobile Client**: Build and deploy the [freya](file:///root/Dev/L.O.R.E/freya/) Android app, which defaults to connection via `lore.rakshitrajendra.in` (customizable in app settings).
 
 ---
 

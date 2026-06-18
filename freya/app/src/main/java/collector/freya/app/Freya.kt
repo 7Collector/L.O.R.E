@@ -71,6 +71,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                         MainScreenState.DriveScreen -> DriveScreen()
                         MainScreenState.PhotosScreen -> PhotosScreen(setAppBarVisibility = viewModel::setAppBarVisibility)
                         MainScreenState.SettingsScreen -> SettingsScreen()
+                        MainScreenState.ManageSharesScreen -> collector.freya.app.sharing.ManageSharesScreen()
                     }
                     if (uiState.showAppBar) {
                         AppTopBar(

@@ -1,5 +1,6 @@
 package collector.freya.app.odin.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,10 +22,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.*
 import collector.freya.app.odin.models.ChatMessage
 import collector.freya.app.odin.models.MessageState
 
@@ -51,7 +55,7 @@ private fun UserMessageBubble(prompt: String) {
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp),
             modifier = Modifier.widthIn(max = 300.dp)
         ) {
             Text(
@@ -116,12 +120,8 @@ private fun AiResponseBlock(message: ChatMessage) {
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-            } else if (message.state == MessageState.PROCESSING && message.updates.isEmpty()) {
-                Text(
-                    text = "Thinking...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+            } else if (message.state == MessageState.PROCESSING && message.reply.isEmpty()) {
+                ThreeDotLoadingIndicator()
             }
 
             if (message.attachments.isNotEmpty()) {
@@ -140,5 +140,46 @@ private fun AiResponseBlock(message: ChatMessage) {
                 )
             }
         }
+    }
+}
+
+@Composable
+fun ThreeDotLoadingIndicator(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "dots")
+
+    val delay1 = 0
+    val delay2 = 150
+    val delay3 = 300
+
+    @Composable
+    fun dotAlpha(delay: Int): Float {
+        val alpha by transition.animateFloat(
+            initialValue = 0.2f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = 600
+                    0.2f at delay
+                    1f at delay + 150
+                    0.2f at delay + 300
+                },
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "dot_alpha_$delay"
+        )
+        return alpha
+    }
+
+    Row(
+        modifier = modifier.padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val dotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        val size = 6.dp
+
+        Box(Modifier.size(size).background(dotColor.copy(alpha = dotAlpha(delay1)), CircleShape))
+        Box(Modifier.size(size).background(dotColor.copy(alpha = dotAlpha(delay2)), CircleShape))
+        Box(Modifier.size(size).background(dotColor.copy(alpha = dotAlpha(delay3)), CircleShape))
     }
 }

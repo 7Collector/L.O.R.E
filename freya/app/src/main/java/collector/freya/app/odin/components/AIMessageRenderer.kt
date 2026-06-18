@@ -61,7 +61,10 @@ private fun MarkdownText(content: String, style: TextStyle, color: Color) {
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         lines.forEach { line ->
-            if (line.isBlank()) return@forEach
+            if (line.isBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                return@forEach
+            }
             val trimmed = line.trim()
 
             when {

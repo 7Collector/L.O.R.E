@@ -49,7 +49,9 @@ fun InputBottomBar(viewModel: ChatViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding(),
     ) {
         Column(
             modifier = Modifier

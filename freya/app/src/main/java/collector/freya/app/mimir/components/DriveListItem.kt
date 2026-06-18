@@ -212,3 +212,98 @@ fun getFileIconAndColor(filename: String, isFile: Boolean): Pair<ImageVector, Co
         else -> Pair(Icons.Outlined.Description, Color(0xFF5F6368)) // Gray
     }
 }
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DriveGridItem(
+    viewModel: DriveViewModel,
+    file: FileItem,
+    isSelected: Boolean,
+    isSelectionMode: Boolean,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    }
+    var expanded by remember { mutableStateOf(false) }
+
+    val (icon, tint) = getFileIconAndColor(file.name, file.isFile)
+
+    Box(
+        modifier = Modifier
+            .padding(4.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .combinedClickable(
+                onClick = onClick, onLongClick = onLongClick
+            )
+            .padding(8.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier.size(64.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+
+        if (!isSelectionMode) {
+            Box(modifier = Modifier.align(Alignment.TopEnd)) {
+                IconButton(onClick = { expanded = true }, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More actions",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                MoreOptionsMenu(
+                    viewModel = viewModel,
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    id = file.id,
+                    name = file.name
+                )
+            }
+        }
+    }
+}

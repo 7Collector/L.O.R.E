@@ -14,6 +14,8 @@ class PreferencesRepository @Inject constructor(private val dataStore: DataStore
     val LAST_MEDIA_DATE_ADDED = longPreferencesKey("last_media_date_added")
     val SERVER_BASE_URL = stringPreferencesKey("server_base_url")
     val API_KEY = stringPreferencesKey("api_key")
+    val THEME_MODE = stringPreferencesKey("theme_mode")
+    val DYNAMIC_COLOR = androidx.datastore.preferences.core.booleanPreferencesKey("dynamic_color")
 
     fun getLastDateAddedSyncedForMediaCollection(): Flow<Long> =
         dataStore.data.map { preferences ->
@@ -22,12 +24,22 @@ class PreferencesRepository @Inject constructor(private val dataStore: DataStore
 
     fun getServerBaseUrl(): Flow<String> =
         dataStore.data.map { preferences ->
-            preferences[SERVER_BASE_URL] ?: "freyaslittlehelper.loca.lt"
+            preferences[SERVER_BASE_URL] ?: "lore.rakshitrajendra.in"
         }
 
     fun getApiKey(): Flow<String> =
         dataStore.data.map { preferences ->
             preferences[API_KEY] ?: "koala"
+        }
+
+    fun getThemeMode(): Flow<String> =
+        dataStore.data.map { preferences ->
+            preferences[THEME_MODE] ?: "System"
+        }
+
+    fun getDynamicColorEnabled(): Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[DYNAMIC_COLOR] ?: true
         }
 
     suspend fun updateLastMediaDateAdded(new: Long) {
@@ -39,5 +51,13 @@ class PreferencesRepository @Inject constructor(private val dataStore: DataStore
             preferences[SERVER_BASE_URL] = url
             preferences[API_KEY] = key
         }
+    }
+
+    suspend fun updateThemeMode(mode: String) {
+        dataStore.edit { it[THEME_MODE] = mode }
+    }
+
+    suspend fun updateDynamicColorEnabled(enabled: Boolean) {
+        dataStore.edit { it[DYNAMIC_COLOR] = enabled }
     }
 }

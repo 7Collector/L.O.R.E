@@ -26,6 +26,8 @@ sealed interface GalleryItem {
 
 data class PhotosUIState(
     val openedPhoto: MediaEntity? = null,
+    val memories: List<collector.freya.app.network.models.MemoryAlbum> = emptyList(),
+    val mapPhotos: List<collector.freya.app.network.models.MapPhoto> = emptyList(),
 )
 
 @RequiresApi(Build.VERSION_CODES.Q)
@@ -36,6 +38,9 @@ class PhotosViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PhotosUIState())
     val uiState = _uiState.asStateFlow()
+
+    val serverUrl = mediaRepository.preferencesRepository.getServerBaseUrl()
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), "lore.rakshitrajendra.in")
 
     val media = mediaRepository.media.map { pagingData ->
         pagingData.map { entity: MediaEntity ->
@@ -55,7 +60,23 @@ class PhotosViewModel @Inject constructor(
     }.cachedIn(viewModelScope)
 
     init {
+        loadMemories()
+        // Load default map photos for a wide bounds (e.g. whole world)
+        loadMapPhotos(-90.0, 90.0, -180.0, 180.0)
+    }
 
+    fun loadMemories() {
+        viewModelScope.launch {
+            val list = mediaRepository.getMemories()
+            _uiState.update { it.copy(memories = list) }
+        }
+    }
+
+    fun loadMapPhotos(minLat: Double, maxLat: Double, minLon: Double, maxLon: Double) {
+        viewModelScope.launch {
+            val list = mediaRepository.getMapPhotos(minLat, maxLat, minLon, maxLon)
+            _uiState.update { it.copy(mapPhotos = list) }
+        }
     }
 
     fun openPhoto(photo: MediaEntity) {

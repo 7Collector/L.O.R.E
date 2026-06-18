@@ -128,9 +128,12 @@ class ChatViewModel @AssistedInject constructor(
 
     // Send Message Function
     fun sendMessage() {
+        val input = uiState.value.inputText.trim()
+        if (input.isEmpty() && uiState.value.attachedElements.isEmpty()) return
+
         // Create Message
         val message = ChatMessage(
-            prompt = uiState.value.inputText,
+            prompt = input,
             id = UUID.randomUUID().toString(),
             chatId = chatId,
             timestamp = System.currentTimeMillis(),
@@ -144,6 +147,7 @@ class ChatViewModel @AssistedInject constructor(
 
         // Send Message
         chatRepository.sendMessage(message)
+        scrollToBottom()
     }
 
     fun stopGeneration() {

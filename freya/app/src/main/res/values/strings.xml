@@ -5,4 +5,5 @@
     <string name="title_drive_screen">Mimir</string>
     <string name="title_photos_screen">Orion</string>
     <string name="title_settings_screen">Settings</string>
+    <string name="title_manage_shares_screen">Manage Shares</string>
 </resources>

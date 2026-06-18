@@ -1,11 +1,10 @@
 package collector.freya.app.network
 
-import collector.freya.app.network.models.DriveGenericResponse
-import collector.freya.app.network.models.DriveListResponse
-import collector.freya.app.network.models.DriveUploadResponse
+import collector.freya.app.network.models.*
 import okhttp3.MultipartBody
 import okhttp3.ResponseBody
 import retrofit2.Response
+import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
@@ -17,6 +16,27 @@ import retrofit2.http.Query
 import retrofit2.http.Streaming
 
 interface DriveApiService {
+    @PUT("mimir/move")
+    suspend fun moveItem(
+        @Query("path") path: String,
+        @Query("new_parent") newParent: String,
+    ): Response<DriveGenericResponse>
+
+    @POST("mimir/shares")
+    suspend fun createShare(
+        @Body payload: CreateSharePayload
+    ): Response<CreateShareResponse>
+
+    @GET("mimir/shares")
+    suspend fun listShares(): Response<ShareListResponse>
+
+    @DELETE("mimir/shares/{share_id}")
+    suspend fun deleteShare(
+        @Path("share_id") shareId: Int
+    ): Response<DriveGenericResponse>
+
+    @GET("mimir/usage")
+    suspend fun getUsage(): Response<QuotaUsageResponse>
     @Streaming
     @GET("mimir/download/{path}")
     suspend fun downloadFile(
