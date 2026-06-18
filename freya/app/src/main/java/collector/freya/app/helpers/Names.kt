@@ -13,5 +13,6 @@ fun getTitleByScreen(screen: MainScreenState): String {
         MainScreenState.DriveScreen -> stringResource(R.string.title_drive_screen)
         MainScreenState.PhotosScreen -> stringResource(R.string.title_photos_screen)
         MainScreenState.SettingsScreen -> stringResource(R.string.title_settings_screen)
+        MainScreenState.ManageSharesScreen -> stringResource(R.string.title_manage_shares_screen)
     }
 }

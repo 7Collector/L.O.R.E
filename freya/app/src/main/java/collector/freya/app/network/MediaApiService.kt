@@ -59,4 +59,15 @@ interface MediaApiService {
 
     @POST("orion/unfavorite/{media_id}")
     suspend fun unfavoriteMedia(@Path("media_id") mediaId: Int): Response<FavoriteResponse>
+
+    @GET("orion/memories")
+    suspend fun getMemories(): Response<List<MemoryAlbum>>
+
+    @GET("orion/map")
+    suspend fun getMapPhotos(
+        @Query("min_lat") minLat: Double,
+        @Query("max_lat") maxLat: Double,
+        @Query("min_lon") minLon: Double,
+        @Query("max_lon") maxLon: Double
+    ): Response<List<MapPhoto>>
 }
