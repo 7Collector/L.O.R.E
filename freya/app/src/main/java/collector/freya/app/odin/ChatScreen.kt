@@ -43,6 +43,8 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scope = rememberCoroutineScope()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     // Components State
     val listState = rememberLazyListState()
     val sheetState = rememberModalBottomSheetState()
@@ -50,12 +52,30 @@ fun ChatScreen(
     LaunchedEffect("k") {
         viewModel.events.collect { event ->
             when (event) {
-                UIEvent.ScrollToBottom -> TODO()
-                is UIEvent.Toast -> TODO()
+                UIEvent.ScrollToBottom -> {
+                    if (uiState.messages.isNotEmpty()) {
+                        listState.animateScrollToItem(uiState.messages.size)
+                    }
+                }
+                is UIEvent.Toast -> {
+                    android.widget.Toast.makeText(context, event.message, android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
+
+    val lastMessageLength = uiState.messages.lastOrNull()?.reply?.length ?: 0
+    LaunchedEffect(uiState.messages.size, lastMessageLength) {
+        if (uiState.messages.isNotEmpty()) {
+            val lastIndex = uiState.messages.size
+            if (uiState.isResponding) {
+                listState.scrollToItem(lastIndex)
+            } else {
+                listState.animateScrollToItem(lastIndex)
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -76,7 +96,7 @@ fun ChatScreen(
                                 .height(80.dp)
                         )
                     }
-                    items(uiState.messages) { message ->
+                    items(uiState.messages, key = { it.id }) { message ->
                         ChatMessageItem(message)
                     }
                     item {
