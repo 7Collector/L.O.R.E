@@ -22,23 +22,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // Signing config driven by environment variables (set in GitHub Actions secrets)
-    signingConfigs {
-        create("release") {
-            val keystorePath = System.getenv("SIGNING_STORE_PATH")
-            val keystorePassword = System.getenv("SIGNING_STORE_PASSWORD")
-            val keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            val keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-
-            if (keystorePath != null && keystorePassword != null && keyAlias != null && keyPassword != null) {
-                storeFile = file(keystorePath)
-                storePassword = keystorePassword
-                this.keyAlias = keyAlias
-                this.keyPassword = keyPassword
-            }
-        }
-    }
-
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -46,11 +29,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Apply release signing config if env vars are present
-            val releaseSigning = signingConfigs.findByName("release")
-            if (releaseSigning?.storeFile != null) {
-                signingConfig = releaseSigning
-            }
         }
     }
     compileOptions {
