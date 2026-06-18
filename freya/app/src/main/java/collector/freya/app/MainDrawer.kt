@@ -105,6 +105,7 @@ fun MainDrawer(
                 MainScreenState.DriveScreen -> DriveControlsSection()
                 MainScreenState.PhotosScreen -> {}
                 MainScreenState.SettingsScreen -> {}
+                MainScreenState.ManageSharesScreen -> {}
             }
         }
     }

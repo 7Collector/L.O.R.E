@@ -11,6 +11,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -97,9 +99,12 @@ fun PhotoViewer(
                 var offset by remember { mutableStateOf(Offset.Zero) }
 
                 val imageModel = if (item.uri.startsWith("http")) {
+                    val headers = coil3.network.NetworkHeaders.Builder()
+                        .set("x-api-key", "koala")
+                        .build()
                     coil3.request.ImageRequest.Builder(LocalContext.current)
                         .data(item.uri)
-                        .setHeader("x-api-key", "koala")
+                        .httpHeaders(headers)
                         .build()
                 } else {
                     item.uri.toUri()
@@ -142,8 +147,8 @@ fun PhotoViewer(
                             }
                         }
                         .pointerInput(Unit) {
-                            androidx.compose.foundation.gestures.detectDragGestures(
-                                onDrag = { change, dragAmount ->
+                            detectDragGestures(
+                                onDrag = { change: PointerInputChange, dragAmount: Offset ->
                                     if (scale == 1f) {
                                         change.consume()
                                         offset = Offset(offset.x, offset.y + dragAmount.y)

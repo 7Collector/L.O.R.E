@@ -10,8 +10,10 @@ import androidx.paging.map
 import collector.freya.app.database.media.models.MediaEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -40,7 +42,7 @@ class PhotosViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     val serverUrl = mediaRepository.preferencesRepository.getServerBaseUrl()
-        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), "lore.rakshitrajendra.in")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "lore.rakshitrajendra.in")
 
     val media = mediaRepository.media.map { pagingData ->
         pagingData.map { entity: MediaEntity ->

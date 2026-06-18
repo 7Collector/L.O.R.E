@@ -6,6 +6,7 @@ import android.util.Size
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
@@ -30,7 +32,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,6 +48,7 @@ import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.compose.collectAsLazyPagingItems
 import coil3.compose.AsyncImage
+import coil3.network.NetworkHeaders
 import coil3.request.ImageRequest
 import collector.freya.app.database.media.models.MediaEntity
 import collector.freya.app.orion.components.PhotoViewer
@@ -100,7 +103,7 @@ fun PhotosScreen(
     val media = viewModel.media.collectAsLazyPagingItems()
     val localContentResolver = LocalContext.current.contentResolver
 
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Photos", "Memories", "Map")
 
     Box {
@@ -226,9 +229,12 @@ private fun PhotoItem(
 ) {
     val context = LocalContext.current
     val model = if (photo.uri.startsWith("http")) {
+        val headers = NetworkHeaders.Builder()
+            .set("x-api-key", "koala")
+            .build()
         ImageRequest.Builder(context)
             .data(photo.uri)
-            .setHeader("x-api-key", "koala")
+            .httpHeaders(headers)
             .build()
     } else {
         contentResolver?.loadThumbnail(photo.uri.toUri(), Size(300, 300), null) ?: photo.uri
@@ -282,9 +288,12 @@ fun MemoriesView(
                             val scheme = if (local) "http" else "https"
                             val thumbUrl = "$scheme://$serverUrl/orion/thumb/${photo.id}"
                             val context = LocalContext.current
+                            val headers = NetworkHeaders.Builder()
+                                .set("x-api-key", "koala")
+                                .build()
                             val model = ImageRequest.Builder(context)
                                 .data(thumbUrl)
-                                .setHeader("x-api-key", "koala")
+                                .httpHeaders(headers)
                                 .build()
 
                             AsyncImage(
@@ -327,9 +336,12 @@ fun MapPhotosView(
                 val scheme = if (local) "http" else "https"
                 val thumbUrl = "$scheme://$serverUrl${photo.thumbnail_url}"
                 val context = LocalContext.current
+                val headers = NetworkHeaders.Builder()
+                    .set("x-api-key", "koala")
+                    .build()
                 val model = ImageRequest.Builder(context)
                     .data(thumbUrl)
-                    .setHeader("x-api-key", "koala")
+                    .httpHeaders(headers)
                     .build()
 
                 Box(
