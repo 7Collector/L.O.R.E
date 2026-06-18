@@ -4,22 +4,69 @@ from openai import OpenAI
 from odin.tools.tools import available_tools
 from odin.tools.web_search import web_search
 from odin.tools.read_webpage import read_webpage
+from odin.tools.file_search import file_search
+from odin.tools.vector_search import vector_search
+from odin.tools.read_file import read_file
+from odin.tools.describe_photo import describe_photo
+from odin.tools.metadata import get_metadata
 from dotenv import load_dotenv
 import os
 import uuid
+from bifrost.auth import verify_session_token
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
 router = APIRouter()
 
-client = OpenAI(base_url="http://127.0.0.1:8000", api_key="none")
+LOCAL_LLM = os.getenv("LOCAL_LLM", "False").lower() in ("true", "1", "yes")
+
+_client = None
+
+def get_openai_client():
+    global _client
+    if _client is None:
+        if LOCAL_LLM:
+            _client = OpenAI(
+                base_url=os.getenv("LOCAL_LLM_BASE_URL", "http://127.0.0.1:8000"),
+                api_key=os.getenv("LOCAL_LLM_API_KEY", "none")
+            )
+        else:
+            base_url = os.getenv("OPENAI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+            api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY") or "placeholder_key"
+            _client = OpenAI(
+                base_url=base_url,
+                api_key=api_key
+            )
+    return _client
+
+if LOCAL_LLM:
+    LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "gemma-3-12b-it-Q4_K_M.gguf")
+else:
+    LLM_MODEL = os.getenv("OPENAI_MODEL") or os.getenv("GEMINI_MODEL") or "gemini-1.5-flash"
 
 @router.websocket("/chat/{chat_id}")
 async def chat_socket(ws: WebSocket, chat_id: str | None = None):
     user_key = ws.headers.get("X-Api-Key") or ws.query_params.get("x-api-key")
+    authorized = False
 
-    if user_key != API_KEY:
+    if user_key == API_KEY:
+        authorized = True
+    else:
+        # Check Bearer token in headers or query param
+        auth_header = ws.headers.get("Authorization")
+        token = None
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+        else:
+            token = ws.query_params.get("token") or ws.query_params.get("bearer_token")
+        
+        if token:
+            user = verify_session_token(token)
+            if user:
+                authorized = True
+
+    if not authorized:
         await ws.close(code=1008)
         return False
 
@@ -36,7 +83,17 @@ async def chat_socket(ws: WebSocket, chat_id: str | None = None):
             prompt = incoming["prompt"]
             # attachments = incoming["attachments"]
 
-            await send_model_message(ws, client, messages, chat_id, message_id, prompt)
+            try:
+                await send_model_message(ws, get_openai_client(), messages, chat_id, message_id, prompt)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                await ws.send_json({
+                    "type": "EXCEPTION",
+                    "text": str(e),
+                    "chat_id": chat_id,
+                    "message_id": message_id
+                })
         
     except WebSocketDisconnect:
         print("Disconnected!")
@@ -56,6 +113,8 @@ def save_message(chat_id: str, role: str, content: str):
     print(f"[SAVE] {chat_id} | {role} | {content}")
 
 async def send_model_message(ws, client, messages, chat_id, message_id, user_prompt: str | None = None):
+    if not LOCAL_LLM and (not client.api_key or client.api_key == "placeholder_key"):
+        raise ValueError("L.O.R.E server is configured to use Cloud LLM, but OPENAI_API_KEY (or GEMINI_API_KEY) is not set in the server's .env file. Please set it to proceed.")
 
     if user_prompt: 
         messages.append({"role": "user", "content": user_prompt})
@@ -67,14 +126,19 @@ async def send_model_message(ws, client, messages, chat_id, message_id, user_pro
         final_response = ""
 
         stream = client.chat.completions.create(
-            model="gemma-3-12b-it-Q4_K_M.gguf",
+            model=LLM_MODEL,
             messages=messages,
             tools=available_tools,
             stream=True
         )
 
+        last_finish_reason = None
         for chunk in stream:
+            if not chunk.choices:
+                continue
             delta = chunk.choices[0].delta
+            if chunk.choices[0].finish_reason:
+                last_finish_reason = chunk.choices[0].finish_reason
 
             if delta.tool_calls:
                 for t in delta.tool_calls:
@@ -86,8 +150,7 @@ async def send_model_message(ws, client, messages, chat_id, message_id, user_pro
                     if t.function.arguments:
                         tool_buffers[current_id] += t.function.arguments
 
-            if chunk.choices[0].finish_reason == "tool_calls":
-                
+            if last_finish_reason == "tool_calls":
                 final_tool_calls = []
                 for call_id, arg_text in tool_buffers.items():
                     final_tool_calls.append({
@@ -128,7 +191,7 @@ async def send_model_message(ws, client, messages, chat_id, message_id, user_pro
                     "content": user_followup
                 })
                 
-                continue 
+                break
 
             if delta and delta.content:
                 token = delta.content
@@ -140,7 +203,7 @@ async def send_model_message(ws, client, messages, chat_id, message_id, user_pro
                     "message_id": message_id
                 })
 
-        if chunk.choices[0].finish_reason != "tool_calls":
+        if last_finish_reason != "tool_calls":
             messages.append({
                 "role": "assistant",
                 "content": final_response
@@ -162,6 +225,21 @@ def run_tool(name, args):
 
     if name == "read_webpage":
         return read_webpage(args["url"])
+
+    if name == "file_search":
+        return file_search(args["query"], args.get("limit", 10))
+
+    if name == "vector_search":
+        return vector_search(args["query"], args.get("top_k", 5))
+
+    if name == "read_file":
+        return read_file(file_id=args.get("file_id"))
+
+    if name == "describe_photo":
+        return describe_photo(args["photo_id"])
+
+    if name == "get_metadata":
+        return get_metadata(args["file_id"])
 
     return "{}"
 
