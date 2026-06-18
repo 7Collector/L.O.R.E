@@ -35,6 +35,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Lint & Syntax Check
+        working-directory: freya
+        run: ./gradlew lintDebug --no-daemon
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx3072m -Dorg.gradle.daemon=false"
+
       - name: Build Debug APK
         working-directory: freya
         run: ./gradlew assembleDebug --no-daemon --stacktrace
