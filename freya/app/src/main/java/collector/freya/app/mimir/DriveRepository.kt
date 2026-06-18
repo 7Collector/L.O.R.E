@@ -32,16 +32,48 @@ data class LocalFileMetadata(
     val lastModified: Long,
 )
 
+val FileItem.fullPath: String
+    get() = if (path == "/") "/$name" else "$path/$name"
+
 class DriveRepository @Inject constructor(
     @ApplicationContext val context: Context,
     val driveDao: DriveDao,
     val driveApi: DriveApiService,
 ) {
 
-    fun files(path: String) = Pager(
+    fun files(path: String, sortOrder: String) = Pager(
         config = PagingConfig(
             pageSize = 50, prefetchDistance = 10, enablePlaceholders = false
-        ), pagingSourceFactory = { driveDao.getPagingSourceWithFoldersFirst(path) }).flow
+        ), pagingSourceFactory = { driveDao.getPagingSourceSorted(path, sortOrder) }).flow
+
+    suspend fun syncFiles(path: String): Boolean {
+        try {
+            val response = driveApi.listFiles(path = path, page = 1, limit = 200)
+            if (response.isSuccessful) {
+                val serverItems = response.body()?.data ?: emptyList()
+                val localItems = serverItems.map { serverItem ->
+                    FileItem(
+                        id = serverItem.id?.toString() ?: java.util.UUID.randomUUID().toString(),
+                        parentId = path,
+                        path = path,
+                        uri = "",
+                        name = serverItem.name,
+                        size = serverItem.size.toInt(),
+                        timestamp = (serverItem.modified * 1000).toLong(),
+                        isFile = serverItem.isFile,
+                        isFavorite = serverItem.favorite ?: false,
+                        isUploaded = true
+                    )
+                }
+                driveDao.deleteUploadedFilesInPath(path)
+                driveDao.insertAll(localItems)
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
 
     suspend fun setFavorite(id: String, isFav: Boolean) {
         driveDao.updateFavorite(id, isFav)
@@ -121,6 +153,44 @@ class DriveRepository @Inject constructor(
 
     suspend fun renameItem(path: String, newName: String): Boolean = withContext(Dispatchers.IO) {
         performGenericAction { driveApi.renameItem(path, newName) }
+    }
+
+    suspend fun moveItem(path: String, newParent: String): Boolean = withContext(Dispatchers.IO) {
+        performGenericAction { driveApi.moveItem(path, newParent) }
+    }
+
+    suspend fun createShare(payload: collector.freya.app.network.models.CreateSharePayload): collector.freya.app.network.models.CreateShareResponse? = withContext(Dispatchers.IO) {
+        try {
+            val response = driveApi.createShare(payload)
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun listShares(): List<collector.freya.app.network.models.ShareItem> = withContext(Dispatchers.IO) {
+        try {
+            val response = driveApi.listShares()
+            if (response.isSuccessful) response.body()?.shares ?: emptyList() else emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun deleteShare(shareId: Int): Boolean = withContext(Dispatchers.IO) {
+        performGenericAction { driveApi.deleteShare(shareId) }
+    }
+
+    suspend fun getUsage(): Long = withContext(Dispatchers.IO) {
+        try {
+            val response = driveApi.getUsage()
+            if (response.isSuccessful) response.body()?.total_usage_bytes ?: 0L else 0L
+        } catch (e: Exception) {
+            e.printStackTrace()
+            0L
+        }
     }
 
     private suspend fun performGenericAction(

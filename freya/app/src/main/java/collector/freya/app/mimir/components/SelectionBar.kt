@@ -9,18 +9,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import collector.freya.app.components.ButtonWithIcon
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Download
 
 @Composable
 fun SelectionBar(
@@ -28,6 +19,9 @@ fun SelectionBar(
     selectedCount: Int,
     dismissSelectionMode: () -> Unit,
     onDeleteClicked: () -> Unit,
+    onShareClicked: () -> Unit,
+    onMoveClicked: () -> Unit,
+    onDownloadClicked: () -> Unit,
 ) {
     Row(
         modifier = modifier
@@ -59,8 +53,35 @@ fun SelectionBar(
         )
         ButtonWithIcon(
             modifier = Modifier,
+            imageVector = Icons.Default.Share,
+            contentDescription = "Share",
+            buttonSize = 48.dp,
+            showBorder = false,
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onShareClicked
+        )
+        ButtonWithIcon(
+            modifier = Modifier,
+            imageVector = Icons.Default.DriveFileMove,
+            contentDescription = "Move",
+            buttonSize = 48.dp,
+            showBorder = false,
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onMoveClicked
+        )
+        ButtonWithIcon(
+            modifier = Modifier,
+            imageVector = Icons.Default.Download,
+            contentDescription = "Download",
+            buttonSize = 48.dp,
+            showBorder = false,
+            tint = MaterialTheme.colorScheme.onSurface,
+            onClick = onDownloadClicked
+        )
+        ButtonWithIcon(
+            modifier = Modifier,
             imageVector = Icons.Default.Delete,
-            contentDescription = "Close",
+            contentDescription = "Delete",
             buttonSize = 48.dp,
             showBorder = false,
             tint = MaterialTheme.colorScheme.onSurface,

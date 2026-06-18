@@ -23,6 +23,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.combine
+import collector.freya.app.mimir.workers.DriveUploadWorker
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+
 sealed interface UiEvent {
     object ScrollToBottom : UiEvent
     data class CurrentPath(val path: String) : UiEvent
@@ -37,7 +43,13 @@ data class DriveUiState(
     val isSelectionMode: Boolean = false,
     val fabExtendedState: Boolean = false,
     val showCreateDialog: Boolean = false,
-    val showRenameDialog: Boolean = false
+    val showRenameDialog: Boolean = false,
+    val isGridView: Boolean = false,
+    val sortOrder: String = "DATE_DESC",
+    val uploadProgress: Int = -1,
+    val uploadStatus: String = "",
+    val isUploading: Boolean = false,
+    val uploadWorkId: java.util.UUID? = null
 )
 
 @HiltViewModel
@@ -57,9 +69,25 @@ class DriveViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val files: Flow<PagingData<FileItem>> =
-        uiState.map { it.currentPath }.distinctUntilChanged().flatMapLatest { path ->
-            driveRepository.files(path)
+        combine(
+            uiState.map { it.currentPath }.distinctUntilChanged(),
+            uiState.map { it.sortOrder }.distinctUntilChanged()
+        ) { path, sort ->
+            Pair(path, sort)
+        }.flatMapLatest { (path, sort) ->
+            viewModelScope.launch {
+                driveRepository.syncFiles(path)
+            }
+            driveRepository.files(path, sort)
         }.cachedIn(viewModelScope)
+
+    fun toggleViewMode() {
+        _uiState.update { it.copy(isGridView = !it.isGridView) }
+    }
+
+    fun setSortOrder(order: String) {
+        _uiState.update { it.copy(sortOrder = order) }
+    }
 
     fun openItem(item: FileItem) {
         if (_uiState.value.isSelectionMode) {
@@ -146,12 +174,161 @@ class DriveViewModel @Inject constructor(
         toggleShowCreateDialog()
         viewModelScope.launch {
             Log.d("DriveViewModel", "Creating folder: $name, Path: ${uiState.value.currentPath}")
-            driveRepository.createFolder(uiState.value.currentPath, name)
+            val success = driveRepository.createFolder(uiState.value.currentPath, name)
+            if (success) {
+                driveRepository.syncFiles(uiState.value.currentPath)
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to create folder"))
+            }
         }
     }
 
     fun onRenameClicked(newName: String) {
-        toggleShowCreateDialog()
+        val id = selectedId ?: return
+        val oldName = selectedItemName ?: return
+        toggleShowRenameDialog()
+        viewModelScope.launch {
+            val item = driveRepository.driveDao.getById(id)
+            val success = driveRepository.renameItem(item.fullPath, newName)
+            if (success) {
+                driveRepository.syncFiles(uiState.value.currentPath)
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to rename item"))
+            }
+        }
+    }
+
+    fun deleteSelected() {
+        val ids = uiState.value.selectedIds.toList()
+        clearSelection()
+        viewModelScope.launch {
+            var successCount = 0
+            ids.forEach { id ->
+                val item = driveRepository.driveDao.getById(id)
+                val success = driveRepository.deleteItem(item.fullPath)
+                if (success) {
+                    driveRepository.driveDao.deleteById(id)
+                    successCount++
+                }
+            }
+            if (successCount > 0) {
+                _uiEvents.emit(UiEvent.Toast("Deleted $successCount item(s)"))
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to delete item(s)"))
+            }
+        }
+    }
+
+    fun moveSelected(newParent: String) {
+        val ids = uiState.value.selectedIds.toList()
+        clearSelection()
+        viewModelScope.launch {
+            var successCount = 0
+            ids.forEach { id ->
+                val item = driveRepository.driveDao.getById(id)
+                val success = driveRepository.moveItem(item.fullPath, newParent)
+                if (success) {
+                    driveRepository.driveDao.deleteById(id)
+                    successCount++
+                }
+            }
+            if (successCount > 0) {
+                driveRepository.syncFiles(uiState.value.currentPath)
+                _uiEvents.emit(UiEvent.Toast("Moved $successCount item(s) to $newParent"))
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to move item(s)"))
+            }
+        }
+    }
+
+    fun downloadSelected() {
+        val ids = uiState.value.selectedIds.toList()
+        clearSelection()
+        viewModelScope.launch {
+            var successCount = 0
+            ids.forEach { id ->
+                val item = driveRepository.driveDao.getById(id)
+                if (item.isFile) {
+                    try {
+                        val response = driveRepository.driveApi.downloadFile(item.fullPath)
+                        if (response.isSuccessful) {
+                            val body = response.body()
+                            if (body != null) {
+                                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                                val destinationFile = java.io.File(downloadsDir, item.name)
+                                body.byteStream().use { inputStream ->
+                                    java.io.FileOutputStream(destinationFile).use { outputStream ->
+                                        val buffer = ByteArray(4096)
+                                        var read: Int
+                                        while (inputStream.read(buffer).also { read = it } != -1) {
+                                            outputStream.write(buffer, 0, read)
+                                        }
+                                        outputStream.flush()
+                                    }
+                                }
+                                successCount++
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+            if (successCount > 0) {
+                _uiEvents.emit(UiEvent.Toast("Downloaded $successCount item(s) to Downloads"))
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to download item(s)"))
+            }
+        }
+    }
+
+    fun createShareSelected(
+        requiresEmail: Boolean,
+        allowedEmails: List<String>?,
+        password: String?,
+        onShareCreated: (String) -> Unit
+    ) {
+        val ids = uiState.value.selectedIds.toList()
+        clearSelection()
+        viewModelScope.launch {
+            if (ids.isEmpty()) return@launch
+            val item = driveRepository.driveDao.getById(ids.first())
+            val resourceId = item.id.toIntOrNull() ?: 1
+            val payload = CreateSharePayload(
+                resource_type = if (item.isFile) "file" else "folder",
+                resource_id = resourceId,
+                requires_email = requiresEmail,
+                allowed_emails = allowedEmails,
+                password = password
+            )
+            val res = driveRepository.createShare(payload)
+            if (res != null) {
+                onShareCreated(res.share_url)
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to create share"))
+            }
+        }
+    }
+
+    val sharesState = MutableStateFlow<List<collector.freya.app.network.models.ShareItem>>(emptyList())
+
+    fun loadShares() {
+        viewModelScope.launch {
+            val list = driveRepository.listShares()
+            sharesState.value = list
+        }
+    }
+
+    fun revokeShare(shareId: Int) {
+        viewModelScope.launch {
+            val success = driveRepository.deleteShare(shareId)
+            if (success) {
+                _uiEvents.emit(UiEvent.Toast("Share revoked successfully"))
+                loadShares()
+            } else {
+                _uiEvents.emit(UiEvent.Toast("Failed to revoke share"))
+            }
+        }
     }
 
     fun onUploadClicked() {
@@ -161,8 +338,44 @@ class DriveViewModel @Inject constructor(
     }
 
     fun uploadFile(uri: Uri) {
+        val uploadRequest = OneTimeWorkRequestBuilder<DriveUploadWorker>()
+            .setInputData(
+                workDataOf(
+                    "uri" to uri.toString(),
+                    "serverPath" to uiState.value.currentPath
+                )
+            )
+            .addTag("drive_upload")
+            .build()
+
+        WorkManager.getInstance(context).enqueue(uploadRequest)
+
+        val workId = uploadRequest.id
+        _uiState.update { it.copy(uploadWorkId = workId) }
+        observeUploadProgress(workId)
+    }
+
+    private fun observeUploadProgress(id: java.util.UUID) {
         viewModelScope.launch {
-            driveRepository.uploadFile(uri, uiState.value.currentPath)
+            WorkManager.getInstance(context)
+                .getWorkInfoByIdFlow(id)
+                .collect { workInfo ->
+                    if (workInfo != null) {
+                        val progress = workInfo.progress.getInt("progress", -1)
+                        val status = workInfo.progress.getString("status") ?: ""
+                        val isFinished = workInfo.state.isFinished
+                        _uiState.update {
+                            it.copy(
+                                uploadProgress = progress,
+                                uploadStatus = status,
+                                isUploading = !isFinished
+                            )
+                        }
+                        if (isFinished && workInfo.state == androidx.work.WorkInfo.State.SUCCEEDED) {
+                            driveRepository.syncFiles(uiState.value.currentPath)
+                        }
+                    }
+                }
         }
     }
 }

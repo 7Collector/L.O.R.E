@@ -154,4 +154,29 @@ class MediaRepository @Inject constructor(
             return false
         }
     }
+
+    suspend fun getMemories(): List<collector.freya.app.network.models.MemoryAlbum> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getMemories()
+            if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun getMapPhotos(
+        minLat: Double,
+        maxLat: Double,
+        minLon: Double,
+        maxLon: Double
+    ): List<collector.freya.app.network.models.MapPhoto> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getMapPhotos(minLat, maxLat, minLon, maxLon)
+            if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
 }

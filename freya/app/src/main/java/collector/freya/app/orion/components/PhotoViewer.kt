@@ -96,8 +96,17 @@ fun PhotoViewer(
                 var scale by remember { mutableFloatStateOf(1f) }
                 var offset by remember { mutableStateOf(Offset.Zero) }
 
+                val imageModel = if (item.uri.startsWith("http")) {
+                    coil3.request.ImageRequest.Builder(LocalContext.current)
+                        .data(item.uri)
+                        .setHeader("x-api-key", "koala")
+                        .build()
+                } else {
+                    item.uri.toUri()
+                }
+
                 AsyncImage(
-                    model = item.uri.toUri(),
+                    model = imageModel,
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
@@ -131,6 +140,22 @@ fun PhotoViewer(
                                     offset = Offset.Zero
                                 }
                             }
+                        }
+                        .pointerInput(Unit) {
+                            androidx.compose.foundation.gestures.detectDragGestures(
+                                onDrag = { change, dragAmount ->
+                                    if (scale == 1f) {
+                                        change.consume()
+                                        offset = Offset(offset.x, offset.y + dragAmount.y)
+                                    }
+                                },
+                                onDragEnd = {
+                                    if (scale == 1f && Math.abs(offset.y) > 200f) {
+                                        onDismiss()
+                                    }
+                                    offset = Offset.Zero
+                                }
+                            )
                         })
 
                 AnimatedVisibility(
